@@ -6,13 +6,16 @@ import * as P from './props.js';
 
 const { C } = P;
 
+// 吊橋落地處留空，人物才走得上島
+const nearGate = (k, x, z) => k.gates.some(([gx, gz]) => Math.hypot(x - gx, z - gz) < 3);
+
 function scatterTrees(k, r, n, avoid = [], types = [P.tree, P.pine]) {
   let placed = 0, tries = 0;
   while (placed < n && tries < n * 30) {
     tries++;
     const a = k.rand(6.283), rr = r * k.rand(0.42, 0.9);
     const x = Math.cos(a) * rr, z = Math.sin(a) * rr;
-    if (avoid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
+    if (nearGate(k, x, z) || avoid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
     k.pick(types)(k, x, z, k.rand(0.55, 0.9));
     placed++;
   }
@@ -23,14 +26,11 @@ function rimDecor(k, r, seed, n) {
     const a = k.rand(6.283), rr = outline(r, seed, a) * k.rand(0.8, 0.93);
     const x = Math.cos(a) * rr, z = Math.sin(a) * rr;
     const t = k.r();
+    if (nearGate(k, x, z)) continue;
     if (t < 0.4) P.rock(k, x, z, k.rand(0.5, 1));
     else if (t < 0.75) P.bush(k, x, z, k.rand(0.8, 1.2));
     else P.flowers(k, x, z, 4, 0.4);
   }
-}
-
-function circlePts(r, n) {
-  return Array.from({ length: n }, (_, i) => [Math.cos((i / n) * 6.283) * r, Math.sin((i / n) * 6.283) * r]);
 }
 
 function spinner(build, x, y, z, axis = 'y', speed = 1) {
@@ -59,7 +59,7 @@ function core(k, def) {
   }
   k.cyl(10.4, 0.14, '#8fb24f', 0, 2.6, -3, { seg: 22, wonk: 0, ao: 1 });
   // 階梯
-  for (let i = 0; i < 9; i++) k.box(3.2, 0.3, 0.6, C.stone, 0, i * 0.29, 8.1 - i * 0.5 + 0.2, { ao: 0.9 });
+  for (let i = 0; i < 9; i++) k.box(3.2, 0.3 + i * 0.29, 0.26, C.stone, 0, 0, 9.5 - i * 0.23, { ao: 0.9 });
   // 第三層與世界樹
   k.cyl(5.6, 2, '#c4b59b', 0, 2.7, -5, { rt: 5.2, seg: 18, ao: 0.76 });
   k.cyl(5.1, 0.12, '#9dbd58', 0, 4.7, -5, { seg: 18, wonk: 0, ao: 1 });
@@ -96,9 +96,12 @@ function core(k, def) {
   [[-7, 13], [7, 13], [-14.4, 0.4], [14.5, -0.6]].forEach(([x, z]) => P.lamp(k, x, z));
   rimDecor(k, r, def.seed, 22);
   P.bench(k, -3.4, 11.4, 0.5); P.bench(k, 3.4, 11.4, -0.5);
-  for (const [x, z] of [[-2.6, 15], [2.4, 15.3], [-1.2, 10]]) P.figure(k, x, z, k.rand(6));
+  for (const [x, z] of [[-2.6, 15], [2.4, 15.3], [-5.6, 9.8]]) P.figure(k, x, z, k.rand(6));
   k.spot(0, 3.2, 12.3).spot(-6.2, 8.6, 0.2).spot(0, 4, 4.6).spot(0, 17, -5).spot(6.2, 7, 0.2);
-  return { dyn, paths: [[[-7, 15], [7, 15], [10, 11], [-10, 11]]], palette: pal };
+  // 台地高 2.74，前方階梯由 z=9.7 爬到 z=7.6
+  const stairs = (x, z) => Math.abs(x) < 1.7 && z > 7.3 && z < 9.75;
+  const floor = (x, z) => (stairs(x, z) ? 2.74 * Math.min(1, Math.max(0, (9.7 - z) / 2.1)) : Math.hypot(x, z + 3) < 10.3 ? 2.74 : 0);
+  return { dyn, palette: pal, walk: { floor, clear: stairs } };
 }
 
 // ═════════ 魚游書海島（課程）═════════
@@ -145,7 +148,7 @@ function course(k, def) {
   scatterTrees(k, r, 7, [[0, 1.6, 9], [-8.4, -4.2, 2.4], [8.4, -3.8, 3]], [P.tree]);
   rimDecor(k, r, def.seed, 14);
   k.spot(0, 2, 0.8).spot(-8.4, 2.6, -4.2).spot(8.4, 2.8, -3.8).spot(-9.6, 3, 3.2).spot(9.8, 3, 3);
-  return { dyn, paths: [circlePts(r * 0.84, 10)] };
+  return { dyn };
 }
 
 // ═════════ 無涯學海島（學程）═════════
@@ -233,7 +236,7 @@ function inquiry(k, def) {
   rimDecor(k, r, def.seed, 12);
   P.pavers(k, [[0, 10], [0, 2], [-2, -1.5]], 0.6);
   k.spot(-4.8, 2.4, 5.2).spot(5.2, 2.4, 5.2).spot(-7.8, 3, -2.2).spot(-1.2, 2.6, 7.8).spot(0, 6, -5).spot(-9.4, 3, 3.4).spot(7.4, 4.6, -3.6).spot(9.4, 3, 2.8).spot(3.8, 3.6, -8.4).spot(8.2, 5, -7);
-  return { dyn, paths: [[[-3, 3], [3, 3], [5, 0], [0, 1], [-5, 0]]] };
+  return { dyn };
 }
 
 // ═════════ 石門魚鄉島（遊程）：石門水庫縮影 ═════════
@@ -242,11 +245,11 @@ function walk(k, def) {
   makeBase(k, { r, seed: def.seed, palette: 'green', wall: 2.6, depth: 15 });
   const dyn = [];
   // 山丘與水庫
-  k.ball(6.4, '#7fa84d', -7, 0, -7.4, { detail: 1, sy: 0.72 });
+  k.ball(4.2, '#7fa84d', -2.8, 0, -9.6, { detail: 1, sy: 0.8 });
   k.ball(5.6, '#6f9a48', 2.6, 0, -9.6, { detail: 1, sy: 0.82 });
   k.ball(5, '#86ad52', 8.8, 0, -7.6, { detail: 1, sy: 0.66 });
-  [[-8.4, -4.8], [-5.2, -5.6], [-3.6, -6.2], [6.2, -6.4], [9.6, -5.2], [11, -3.4]].forEach(([x, z]) => P.maple(k, x, z, 0.72));
-  [[-9.2, -7.2], [-7, -8.6], [-4.6, -8], [3.6, -8.3], [7, -8.2], [9.4, -7.3]].forEach(([x, z]) => P.pine(k, x, z, 0.72, 2.1));
+  [[-7.6, -6.4], [-5.2, -5.6], [-3.6, -6.2], [6.2, -6.4], [9.6, -5.2], [11, -3.4]].forEach(([x, z]) => P.maple(k, x, z, 0.72));
+  [[-5.2, -10.2], [-3.4, -7.4], [-1.2, -8], [3.6, -8.3], [7, -8.2], [9.4, -7.3]].forEach(([x, z]) => P.pine(k, x, z, 0.72, 2.1));
   // 水庫水面（高度由即時水位控制）
   const lakeG = new THREE.CircleGeometry(1, 26);
   lakeG.rotateX(-Math.PI / 2);
@@ -310,7 +313,7 @@ function walk(k, def) {
   P.flag(k, -6.4, 8.4, 1.6, C.orange);
   rimDecor(k, r, def.seed, 12);
   k.spot(-9, 3, 2.8).spot(-3.8, 3.4, 3.8).spot(0.8, 3, -0.2).spot(-2.8, 2.6, -3.6).spot(3.6, 3, 7.2).spot(9.8, 2.2, 3.2);
-  return { dyn, paths: [[[-9, 6], [-3, 7], [1, 9.6], [7, 9.4], [10, 6], [5, 2.2], [-6, 1.8]]] };
+  return { dyn, walk: { keepOut: [[0.8, -3.4, 8, 4.5]] } };
 }
 
 // ═════════ 無邊視界島（工程）═════════
@@ -408,7 +411,7 @@ function digital(k, def) {
   }
   rimDecor(k, r, def.seed, 10);
   k.spot(-8.6, 2.2, 1).spot(-4.6, 1.6, 5.8).spot(0.4, 2.6, 6.8).spot(5, 2.6, 5.6).spot(8.8, 2, 2).spot(-9.8, 2.8, -3.4).spot(9.8, 2.6, -2.2).spot(3.6, 2.2, 2.6).spot(3.2, 3, -7.8).spot(-1.6, 2.4, 3).spot(-1.4, 3, -7.4);
-  return { dyn, paths: [[[-3, 1], [2, 1], [1, 4.6], [-2.6, 4.6]]] };
+  return { dyn };
 }
 
 // ═════════ 大河馬書房島（ILR 與多元文本）═════════
@@ -444,7 +447,7 @@ function library(k, def) {
   scatterTrees(k, r, 6, [[0, -3.2, 6], [0.4, 4, 4], [-5.2, 3.6, 2], [4.6, 3.4, 2]], [P.tree]);
   rimDecor(k, r, def.seed, 12);
   k.spot(0, 5.4, -3.2).spot(-7.8, 2.4, 0.6).spot(8, 2.2, 0.2).spot(0.4, 2.2, 4);
-  return { dyn: [], paths: [[[-8, 6], [-3, 8.4], [3, 8.6], [8, 6], [10, 2], [-10, 2.6]]] };
+  return { dyn: [] };
 }
 
 // ═════════ 領航燈塔島（行政運作）═════════
@@ -505,7 +508,7 @@ function admin(k, def) {
   scatterTrees(k, r, 6, [[1.4, -2.6, 3.6], [-6.8, -3.8, 2.8], [7.2, 2.6, 2.6], [5.4, 6.6, 2], [-3.6, 7, 2], [-6, 2.6, 1.4], [0, 4.4, 2.4]], [P.pine, P.tree]);
   rimDecor(k, r, def.seed, 10);
   k.spot(1.4, 11.6, -2.6).spot(-3.6, 2.6, 7).spot(-6.8, 3.6, -3.8).spot(7.2, 3.4, 2.6).spot(-6, 3.4, 2.6);
-  return { dyn, paths: [[[-8, 0], [-3, 2], [3, 3.4], [2, 6], [-2, 5], [-7, 4]]] };
+  return { dyn };
 }
 
 // ═════════ 共備工坊島（教學創新）═════════
@@ -562,7 +565,7 @@ function teacher(k, def) {
   scatterTrees(k, r, 6, [[0, -3, 5], [-5, 3.8, 3], [5.2, 3.6, 3], [0.4, 7.4, 1.6]], [P.tree]);
   rimDecor(k, r, def.seed, 10);
   k.spot(-5, 2.6, 3.8).spot(0, 5.2, -3).spot(0.4, 2.2, 7.4).spot(5.2, 3.2, 3.6).spot(-5.2, 4.6, -1.6);
-  return { dyn, paths: [[[-2.4, 1], [2.4, 1], [3, 6.6], [-3, 7]]] };
+  return { dyn };
 }
 
 // ═════════ 星光展能島（學習成效）═════════
@@ -631,7 +634,7 @@ function results(k, def) {
   scatterTrees(k, r, 5, [[0, 0, 6], [-8, 0, 4.6], [7.4, -3.6, 3], [8.4, 3.8, 2.6], [-7.2, 3.8, 2.2], [0, 6.8, 3.6]], [P.tree]);
   rimDecor(k, r, def.seed, 12);
   k.spot(-7.6, 3.6, -1.4).spot(0, 6, 0).spot(7.4, 5, -3.6).spot(-7.2, 2.4, 3.8).spot(8.4, 3.2, 3.8);
-  return { dyn, paths: [[[-4, 3], [4, 3], [5, -3.6], [0, -4.6], [-5, -4]]] };
+  return { dyn };
 }
 
 // ═════════ 童書之森島（環境營造）═════════
@@ -689,12 +692,12 @@ function forest(k, def) {
   });
   // 親子共讀
   for (const [x, z, s] of [[-0.8, 3.8, 1.2], [-0.2, 4.1, 0.86], [2.6, 2.8, 1.2], [3.2, 3.1, 0.86]]) P.figure(k, x, z, 0.4, { sit: s < 1, shirt: s < 1 ? C.gold : C.teal, s });
-  [[-10, -3, 1], [-8.5, -6.4, 1.3], [-4.8, -8.6, 1.2], [-0.8, -9.8, 1.3], [3, -9.2, 1], [10, -1.6, 1]].forEach(([x, z, s]) => P.tree(k, x, z, s));
-  [[-11.2, 0, 1], [-6.4, -8.4, 1.2], [1, -8, 1.1], [-3.5, -7, 1], [-9.8, -5, 1.1]].forEach(([x, z, s]) => P.pine(k, x, z, s));
+  [[-10, -3, 1], [-8.5, -6.4, 1.3], [-4.8, -8.6, 1.2], [-0.8, -9.8, 1.3], [3, -9.2, 1], [10, -1.6, 1]].forEach(([x, z, s]) => { if (!nearGate(k, x, z)) P.tree(k, x, z, s); });
+  [[-11.2, 0, 1], [-6.4, -8.4, 1.2], [1, -8, 1.1], [-3.5, -7, 1], [-9.8, -5, 1.1]].forEach(([x, z, s]) => { if (!nearGate(k, x, z)) P.pine(k, x, z, s); });
   P.flowers(k, -4, 7.6, 12, 1.4); P.flowers(k, 5.6, 8, 10, 1.2); P.flowers(k, -8.6, 6.4, 10, 1.2);
   rimDecor(k, r, def.seed, 8);
   k.spot(-1.4, 5, -1.6).spot(1.6, 3, 7).spot(-7.4, 3.2, 3.2).spot(6.8, 2.4, 3.2);
-  return { dyn: [], paths: [[[-1, 5.4], [4, 5.8], [-2, 8.6], [-6, 7.4]]] };
+  return { dyn: [] };
 }
 
 // ═════════ 風信飛艇島（品牌行銷）═════════
@@ -751,7 +754,7 @@ function brand(k, def) {
   scatterTrees(k, r, 5, [[-1, -2, 3], [6.6, -2.4, 3], [3.4, 3.6, 2.6], [-5.4, 3.4, 3], [-1, 5.4, 2.2]], [P.tree]);
   rimDecor(k, r, def.seed, 10);
   k.spot(-5.4, 2.8, 3.4).spot(-1, 3, 5.4).spot(6.6, 5.4, -2.4);
-  return { dyn, paths: [[[-7, 0], [-4, -1], [3, 0.4], [1, 1.8], [-3, 1.4]]], moor: new THREE.Vector3(-1, 8.3, -2) };
+  return { dyn, moor: new THREE.Vector3(-1, 8.3, -2) };
 }
 
 // ═════════ 曙光未來島（總結與未來）═════════
@@ -784,16 +787,18 @@ function future(k, def) {
   P.lamp(k, -4.4, 6); P.lamp(k, 0.4, 6.8);
   rimDecor(k, r, def.seed, 12);
   k.spot(0, 9.6, -2.4).spot(-6.4, 3.4, 2.6).spot(5, 3.4, 4);
-  return { dyn, paths: [[[-3, 2.4], [1, 2], [0.6, 7.2], [-3.4, 7.4]]] };
+  return { dyn };
 }
 
 const builders = { core, course, inquiry, walk, digital, library, admin, teacher, results, forest, brand, future };
 
-export function buildIsland(def) {
+export function buildIsland(def, gates = []) {
   const k = new Kit(def.seed * 97 + 13);
+  k.gates = gates;
   const info = builders[def.id](k, def);
   const group = new THREE.Group();
-  group.add(k.build());
+  const terrain = k.build();
+  group.add(terrain);
   (info.dyn || []).forEach((d) => group.add(d.obj));
   // 懸浮碎石
   const rocks = new Kit(def.seed + 200);
@@ -805,5 +810,5 @@ export function buildIsland(def) {
   }
   const rocksMesh = rocks.build();
   group.add(rocksMesh);
-  return { group, rocks: rocksMesh, anchors: k.anchors, dyn: info.dyn || [], paths: info.paths || [], moor: info.moor };
+  return { group, terrain, rocks: rocksMesh, anchors: k.anchors, dyn: info.dyn || [], walk: info.walk, moor: info.moor };
 }

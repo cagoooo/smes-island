@@ -1,4 +1,4 @@
-// 天空中的生命：鱻鯉雲魚、飛艇、紙飛機、鳥群、小朋友與小河馬
+// 天空中的生命：鱻鯉雲魚、飛艇、紙飛機、鳥群與小河馬
 import * as THREE from 'three';
 import { Kit, G, makeRng } from './kit.js';
 import { C } from './props.js';
@@ -57,7 +57,7 @@ function koiMaterial() {
 }
 
 export class Life {
-  constructor(scene, islands, opts) {
+  constructor(scene, islands) {
     this.scene = scene;
     this.fish = [];
     const palettes = [['#e23f2a', '#fff3e4', '#ef8a32'], ['#ffffff', '#fff3e4', '#e8452f'], ['#2f83c8', '#dff0fa', '#7cc0e8'], ['#e8a22f', '#fff0d0', '#d9622b']];
@@ -81,7 +81,6 @@ export class Life {
     this.buildSchool(scene);
     this.buildPlanes(scene);
     this.buildAirship(scene, islands);
-    this.buildKids(scene, islands, opts.kids);
     this.buildHippos(scene, islands);
   }
 
@@ -144,32 +143,6 @@ export class Life {
     scene.add(this.airship);
   }
 
-  // 校園裡走動的孩子
-  buildKids(scene, islands, count) {
-    const body = new Kit(51);
-    body.cyl(0.14, 0.42, '#ffffff', 0, 0.22, 0, { seg: 6, ao: 1 });
-    const legs = new Kit(52);
-    legs.box(0.09, 0.24, 0.09, '#2f6f53', -0.07, 0, 0);
-    legs.box(0.09, 0.24, 0.09, '#2f6f53', 0.07, 0, 0);
-    legs.ball(0.145, C.skin, 0, 0.78, 0, { detail: 1 });
-    legs.ball(0.152, '#2a2118', 0, 0.83, -0.03, { detail: 1, sy: 0.72 });
-    const shirts = ['#f2c230', '#f2c230', '#5ea85a', '#f2c230', '#ffffff', '#5ea85a'];
-    const r = makeRng(9);
-    this.kids = [];
-    const list = Object.entries(islands).flatMap(([id, is]) => is.paths.map((p) => ({ id, is, p })));
-    for (let i = 0; i < count; i++) {
-      const { is, p, id } = list[i % list.length];
-      this.kids.push({ is, id, path: p, t: r() * p.length, sp: 0.2 + r() * 0.16, ph: r() * 6.28, off: [r() * 0.5 - 0.25, r() * 0.5 - 0.25] });
-    }
-    this.kidBody = new THREE.InstancedMesh(body.build().children[0].geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), count);
-    this.kidRest = new THREE.InstancedMesh(legs.build().children[0].geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), count);
-    for (let i = 0; i < count; i++) this.kidBody.setColorAt(i, new THREE.Color(shirts[i % shirts.length]));
-    this.kidBody.castShadow = this.kidRest.castShadow = true;
-    this.kidBody.frustumCulled = this.kidRest.frustumCulled = false;
-    scene.add(this.kidBody, this.kidRest);
-    this.kidScale = 1;
-  }
-
   // 藏在各島的十二隻小河馬
   buildHippos(scene, islands) {
     this.hippos = [];
@@ -201,7 +174,7 @@ export class Life {
     }
   }
 
-  update(t, dt, env, islands) {
+  update(t) {
     for (const f of this.fish) {
       const a = t * f.sp + f.ph;
       const x = Math.cos(a) * f.rx, z = Math.sin(a) * f.rz;
@@ -232,29 +205,5 @@ export class Life {
     this.airship.rotation.y = -0.6 + Math.sin(t * 0.2) * 0.16;
     this.airship.rotation.z = Math.sin(t * 0.4) * 0.03;
 
-    // 小朋友：夜間與假日隱藏，由 kidScale 控制出現比例
-    const show = env.kidsVisible;
-    const n = this.kids.length;
-    this.kids.forEach((k, i) => {
-      const on = show === 'all' || (show === 'few' && (k.id === 'forest' || k.id === 'library') && i % 2 === 0);
-      if (!on) {
-        d.position.set(0, -999, 0); d.scale.setScalar(0.001); d.rotation.set(0, 0, 0);
-      } else {
-        const i0 = Math.floor(k.t), i1 = (i0 + 1) % k.path.length, f = k.t - i0;
-        const a = k.path[i0], b = k.path[i1];
-        const seg = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-        k.t = (k.t + (dt * k.sp * 2.4) / seg) % k.path.length;
-        const x = a[0] + (b[0] - a[0]) * f + k.off[0], z = a[1] + (b[1] - a[1]) * f + k.off[1];
-        const g = k.is.group.position;
-        d.position.set(g.x + x, g.y + Math.abs(Math.sin(t * 7 + k.ph)) * 0.06, g.z + z);
-        d.rotation.set(0, Math.atan2(b[0] - a[0], b[1] - a[1]), 0);
-        d.scale.setScalar(1.25);
-      }
-      d.updateMatrix();
-      this.kidBody.setMatrixAt(i, d.matrix);
-      this.kidRest.setMatrixAt(i, d.matrix);
-    });
-    this.kidBody.instanceMatrix.needsUpdate = true;
-    this.kidRest.instanceMatrix.needsUpdate = true;
   }
 }

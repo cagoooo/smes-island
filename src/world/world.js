@@ -12,6 +12,7 @@ import { waterfall } from './base.js';
 import { Sky } from './sky.js';
 import { Clouds } from './clouds.js';
 import { Life } from './life.js';
+import { People, buildNav } from './people.js';
 import { buildBridges, buildCloudSteps, buildArcs, Rain } from './links.js';
 import { shared, fallMat } from './materials.js';
 import { ISLANDS, BRIDGES, STEPS, LINKS, TALL } from '../data/site.js';
@@ -82,13 +83,21 @@ export class World {
       fn();
     };
     const msgs = ['堆起古老石牆…', '垂下樹根與藤蔓…', '攤開那本大書…', '放滿水庫的水…', '升起訊號塔…', '請大河馬就位…', '點亮燈塔…', '轉動工坊齒輪…', '掛上星星…', '搭起森林小屋…', '繫好鯉魚飛艇…', '迎接第一道曙光…'];
+    // 直向畫面把群島排成上下較長的隊形，名牌才不會疊在一起
+    const tall = window.innerWidth / window.innerHeight < 0.8;
+    const spot = (id) => (tall ? { x: TALL[id][0], z: TALL[id][1] } : this.defs[id].pos);
+    const gates = Object.fromEntries(ISLANDS.map((d) => [d.id, []]));
+    for (const [a, b] of [...BRIDGES, ...STEPS]) {
+      for (const [p, q] of [[a, b], [b, a]]) {
+        const ang = Math.atan2(spot(q).z - spot(p).z, spot(q).x - spot(p).x);
+        gates[p].push([Math.cos(ang) * this.defs[p].r * 0.92, Math.sin(ang) * this.defs[p].r * 0.92]);
+      }
+    }
     for (let i = 0; i < ISLANDS.length; i++) {
       const d = ISLANDS[i];
       await step(msgs[i], (i + 1) / (ISLANDS.length + 2), () => {
-        const built = buildIsland(d);
-        // 直向畫面把群島排成上下較長的隊形，名牌才不會疊在一起
-        const tall = window.innerWidth / window.innerHeight < 0.8;
-        built.group.position.set(tall ? TALL[d.id][0] : d.pos.x, d.pos.y, tall ? TALL[d.id][1] : d.pos.z);
+        const built = buildIsland(d, gates[d.id]);
+        built.group.position.set(spot(d.id).x, d.pos.y, spot(d.id).z);
         this.scene.add(built.group);
         built.base = d.pos.y;
         built.phase = i * 1.3;
@@ -101,15 +110,26 @@ export class World {
       });
     }
     await step('架起吊橋…', 0.93, () => {
-      this.scene.add(buildBridges(BRIDGES, this.defs, this.islands));
-      STEPS.forEach(([a, b]) => this.scene.add(buildCloudSteps(a, b, this.defs, this.islands)));
+      const bridges = buildBridges(BRIDGES, this.defs, this.islands);
+      this.scene.add(bridges.mesh);
+      this.routes = bridges.routes;
+      for (const [a, b] of STEPS) {
+        const steps = buildCloudSteps(a, b, this.defs, this.islands);
+        this.scene.add(steps.mesh);
+        this.routes.push(steps.route);
+      }
       this.arcs = buildArcs(LINKS.map((l) => [l.a, l.b]), this.islands);
       this.scene.add(this.arcs.group);
     });
     await step('放出鱻鯉雲魚…', 0.97, () => {
-      this.life = new Life(this.scene, this.islands, { kids: this.tier === 'low' ? 40 : 84 });
+      this.life = new Life(this.scene, this.islands);
       this.addHighlights();
       this.setupComposer();
+    });
+    await step('請老師和同學出發…', 0.99, () => {
+      buildNav(this.islands, this.defs);
+      const few = this.tier === 'low';
+      this.people = new People(this.scene, this.islands, this.routes, { classes: few ? 3 : 6, groups: few ? 7 : 14, solos: few ? 3 : 5 });
     });
     this.resize();
     this.setView('home', true);
@@ -277,6 +297,10 @@ export class World {
     return this.ray.intersectObjects(list, true)[0];
   }
 
+  personAt() {
+    return this.people.pickAt(this.pointer.x, this.pointer.y, this.camera, this.height);
+  }
+
   setHover(id) {
     if (id === this.hovered) return;
     this.hovered = id;
@@ -292,9 +316,28 @@ export class World {
       while (o && !o.userData.hippo) o = o.parent;
       if (o) { this.hooks.onHippo?.(o.userData.hippo, o); return; }
     }
+    const who = this.personAt();
+    if (who) { this.hooks.onPerson?.(who); return; }
     const hit = this.rayHit(this.colliders);
     if (hit) this.hooks.onPick?.(hit.object.userData.island);
   }
+
+  // 鏡頭跟著一支隊伍逛島
+  follow(crew) {
+    this.people.followed = crew;
+    this.focused = null;
+    this.viewName = 'home';
+    this.controls.minDistance = 16;
+    const p = crew.members[0];
+    const tgt = new THREE.Vector3(p.x, p.y + 1, p.z);
+    const dir = this.camera.position.clone().sub(this.controls.target).setY(0).normalize();
+    if (dir.lengthSq() < 0.5) dir.set(0, 0, 1);
+    dir.y = 0.62;
+    dir.normalize();
+    this.flyTo(tgt.clone().addScaledVector(dir, this.width < this.height ? 40 : 30), tgt, 1.6);
+  }
+
+  unfollow() { this.people.followed = null; }
 
   setTimeMode(mode) { this.timeMode = mode; this.applySky(); }
 
@@ -330,7 +373,7 @@ export class World {
     const schoolHours = hour >= 7.5 && hour <= 16.5;
     const previewDay = this.timeMode === 'day';
     this.env.kidsVisible = this.env.night > 0.5 ? 'none' : (weekday && schoolHours) || previewDay ? 'all' : 'few';
-    this.env.schoolState = this.env.night > 0.5 ? '校園休息中' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
+    this.env.schoolState = this.env.night > 0.5 ? '校園休息中，還有幾個人在島上看星星' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
     this.hooks.onEnv?.(this.env, hour);
   }
 
@@ -382,7 +425,16 @@ export class World {
       }
       for (const d of is.dyn) d.update?.(t, this.env);
     }
-    this.life.update(t, this.paused ? 0 : dt, this.env, this.islands);
+    this.life.update(t);
+    this.people.update(t, this.paused ? 0 : dt, this.env, this.islands);
+    const crew = this.people.followed;
+    if (crew && !this.flight) {
+      const lead = crew.members[0];
+      const k = 1 - Math.exp(-dt * 2.6);
+      const dx = (lead.x - this.controls.target.x) * k, dy = (lead.y + 1 - this.controls.target.y) * k, dz = (lead.z - this.controls.target.z) * k;
+      this.controls.target.x += dx; this.controls.target.y += dy; this.controls.target.z += dz;
+      this.camera.position.x += dx; this.camera.position.y += dy; this.camera.position.z += dz;
+    }
     this.clouds.update(this.paused ? 0 : dt, this.sky);
     if (this.arcs) this.arcs.mat.uniforms.uA.value += ((this.arcTarget || 0) - this.arcs.mat.uniforms.uA.value) * Math.min(1, dt * 5);
 
@@ -390,6 +442,7 @@ export class World {
       this.hoverDirty = false;
       const hit = this.rayHit(this.colliders);
       this.setHover(hit ? hit.object.userData.island : null);
+      if (this.personAt()) this.canvas.style.cursor = 'pointer';
     }
     // 陽光方向更新時才重畫陰影的週期
     this.renderer.shadowMap.autoUpdate = (this.setupFrame++ % (this.tier === 'high' ? 2 : 4)) === 0;

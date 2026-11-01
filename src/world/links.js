@@ -14,6 +14,7 @@ function edgePoint(def, group, toward) {
 
 export function buildBridges(pairs, defs, islands) {
   const k = new Kit(404);
+  const routes = [];
   for (const [a, b] of pairs) {
     const A = edgePoint(defs[a], islands[a].group, islands[b].group.position);
     const B = edgePoint(defs[b], islands[b].group, islands[a].group.position);
@@ -24,6 +25,8 @@ export function buildBridges(pairs, defs, islands) {
     const yaw = Math.atan2(dir.x, dir.z);
     const sag = Math.min(2.6, len * 0.075);
     const pt = (t) => A.clone().lerp(B, t).add(new THREE.Vector3(0, -Math.sin(t * Math.PI) * sag, 0));
+    const steps = Math.ceil(len / 0.6);
+    routes.push({ a, b, pts: Array.from({ length: steps + 1 }, (_, i) => { const p = pt(i / steps); return [p.x, p.y + 0.05, p.z]; }) });
     for (let i = 1; i < n; i++) {
       const t = i / n, p = pt(t), q = pt(t + 0.01);
       const slope = Math.atan2(q.y - p.y, 0.01 * len);
@@ -48,7 +51,7 @@ export function buildBridges(pairs, defs, islands) {
       }
     }
   }
-  return k.build();
+  return { mesh: k.build(), routes };
 }
 
 // 通往未來島的漂浮石階
@@ -57,16 +60,29 @@ export function buildCloudSteps(from, to, defs, islands) {
   const A = edgePoint(defs[from], islands[from].group, islands[to].group.position);
   const B = edgePoint(defs[to], islands[to].group, islands[from].group.position);
   const n = Math.round(A.distanceTo(B) / 2.2);
+  const stones = [[A.x, A.y, A.z]];
   for (let i = 1; i < n; i++) {
     const p = A.clone().lerp(B, i / n);
     p.y += Math.sin((i / n) * Math.PI) * 0.8;
-    k.at(p.x + k.rand(-0.3, 0.3), p.y, p.z + k.rand(-0.3, 0.3), k.rand(6), 1, () => {
+    const sx = p.x + k.rand(-0.3, 0.3), sz = p.z + k.rand(-0.3, 0.3);
+    stones.push([sx, p.y + 0.12, sz]);
+    k.at(sx, p.y, sz, k.rand(6), 1, () => {
       k.cyl(1, 0.3, '#c9bb9f', 0, -0.3, 0, { seg: 7 });
       k.cone(0.9, 1, '#94795a', 0, -1.3, 0, { seg: 6, rx: Math.PI, y: -0.82 });
       k.cyl(0.92, 0.1, '#9dbd58', 0, 0, 0, { seg: 7, wonk: 0 });
     });
   }
-  return k.build();
+  stones.push([B.x, B.y, B.z]);
+  // 一顆一顆跳過去：相鄰石頭之間走拋物線
+  const pts = [stones[0]];
+  for (let i = 0; i + 1 < stones.length; i++) {
+    const [ax, ay, az] = stones[i], [bx, by, bz] = stones[i + 1];
+    for (let j = 1; j <= 6; j++) {
+      const u = j / 6;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u + Math.sin(u * Math.PI) * 0.62, az + (bz - az) * u]);
+    }
+  }
+  return { mesh: k.build(), route: { a: from, b: to, pts } };
 }
 
 const arcMat = new THREE.ShaderMaterial({

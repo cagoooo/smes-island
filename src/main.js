@@ -2,11 +2,12 @@
 import './styles.css';
 import * as THREE from 'three';
 import { World } from './world/world.js';
+import { music } from './ui/sound.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const byId = Object.fromEntries(ISLANDS.map((d) => [d.id, d]));
@@ -20,7 +21,7 @@ const store = {
 };
 
 const S = {
-  island: null, tab: 0, listing: false, touring: false, tourPaused: false, tourIdx: 0, labels: true, arcs: false, paused: false, time: 'live',
+  island: null, tab: 0, listing: false, touring: false, walking: false, tourPaused: false, tourIdx: 0, labels: true, arcs: false, paused: false, time: 'live',
   stamps: new Set(store.get('smes-stamps', [])), hippos: new Set(store.get('smes-hippos', [])), res: null, weather: null, air: null, news: [],
 };
 let world = null;
@@ -67,6 +68,11 @@ $('#app').innerHTML = `
   <div class="bar"><i id="tBar"></i></div>
 </div></div>
 
+<div class="walkbar card" id="walkbar" hidden>
+  <div class="txt"><strong id="wTitle"></strong><span id="wText"></span></div>
+  <div class="ctl"><button data-act="strollNext">換一隊</button><button data-act="strollIsland">看這座島</button><button class="main" data-act="strollEnd">結束逛島</button></div>
+</div>
+
 <button class="hintcard card" id="hint" data-act="passport">
   <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span></span>
 </button>
@@ -75,6 +81,7 @@ $('#app').innerHTML = `
 <nav class="dock" aria-label="工具列">
   <button class="cta koi" data-act="quiz">閱讀小測驗</button>
   <button class="cta lake" data-act="tour" id="tourBtn">島嶼導覽</button>
+  <button class="cta sun" data-act="stroll" id="strollBtn">跟著逛島</button>
   <button class="cta moss" data-act="passport">閱讀護照</button>
   <div class="seg" role="group" aria-label="檢視模式">
     <button class="on" data-view="home">全景</button><button data-view="top">鳥瞰</button><button data-view="list">清單</button>
@@ -83,6 +90,7 @@ $('#app').innerHTML = `
     <button class="on" data-act="labels">島名</button>
     <button data-act="arcs">跨域串聯</button>
     <button data-act="pause" id="pauseBtn">暫停</button>
+    <button data-act="music" id="musicBtn" aria-pressed="true">音樂</button>
     <button data-act="time" id="timeBtn" title="切換時間">即時</button>
     <button class="on desk-only" data-act="tilt" id="tiltBtn" title="微縮移軸特效">移軸</button>
     <button data-act="log">日誌</button>
@@ -207,6 +215,59 @@ function place(el, camera, W, H) {
   el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) translate(-50%,-50%)`;
 }
 
+// ───────── 老師與學生的對話、跟著逛島 ─────────
+let sayEl = null, sayWho = null, sayTimer;
+
+function hideSay() {
+  clearTimeout(sayTimer);
+  sayEl?.remove();
+  sayEl = sayWho = null;
+}
+
+function showSay(p) {
+  hideSay();
+  sayWho = p;
+  sayEl = document.createElement('div');
+  sayEl.className = 'say';
+  sayEl.innerHTML = `<div class="say-box"><strong>${p.kind === 'teacher' ? '老師' : '小朋友'}</strong><p>${esc(world.people.lineOf(p))}</p><button data-act="sayFollow">跟著走</button></div>`;
+  $('#labels').appendChild(sayEl);
+  sayTimer = setTimeout(hideSay, 7000);
+}
+
+function startStroll(crew) {
+  hideSay();
+  if (S.island) closeIsland();
+  if (S.touring) stopTour();
+  if (S.listing) setList(false);
+  S.walking = true;
+  document.body.classList.add('walking');
+  $('#walkbar').hidden = false;
+  $('#strollBtn').textContent = '結束逛島';
+  syncView('');
+  world.follow(crew);
+  updateInset();
+}
+
+function stopStroll(home = false) {
+  if (!S.walking) return;
+  S.walking = false;
+  document.body.classList.remove('walking');
+  $('#walkbar').hidden = true;
+  $('#strollBtn').textContent = '跟著逛島';
+  world.unfollow();
+  updateInset();
+  if (home) { world.clearFocus(); world.setView('home'); syncView('home'); }
+}
+
+function paintStroll() {
+  const c = world.people.followed;
+  if (!c) return;
+  const title = c.teacher && c.members.length > 1 ? '跟著老師帶的隊伍' : c.teacher ? '跟著老師' : '跟著小朋友';
+  const text = world.people.status(c);
+  if ($('#wTitle').textContent !== title) $('#wTitle').textContent = title;
+  if ($('#wText').textContent !== text) $('#wText').textContent = text;
+}
+
 function onFrame(camera) {
   const W = world.width, H = world.height;
   for (const d of ISLANDS) {
@@ -216,12 +277,16 @@ function onFrame(camera) {
   }
   const g = S.island && world.islands[S.island].group;
   if (g) for (const p of pins) { v3.copy(p.anchor).add(g.position); place(p.el, camera, W, H); }
+  if (sayEl) { world.people.headOf(sayWho, v3); place(sayEl, camera, W, H); }
+  if (S.walking) paintStroll();
 }
 
 // ───────── 開啟島嶼 ─────────
 function openIsland(id, { tab = 0, fly = true, push = true } = {}) {
   if (S.listing) setList(false, false);
   if (S.touring) stopTour();
+  if (S.walking) stopStroll();
+  hideSay();
   const d = byId[id];
   S.island = id;
   S.tab = tab;
@@ -261,7 +326,7 @@ function openIsland(id, { tab = 0, fly = true, push = true } = {}) {
 // 依目前開啟的面板調整場景可視中心
 function updateInset() {
   if (!world) return;
-  if (S.touring || S.listing) { world.setInset(0, 0); return; }
+  if (S.touring || S.listing || S.walking) { world.setInset(0, 0); return; }
   if (S.island) {
     if (isMobile()) world.setInset(0, $('#panel').offsetHeight / 2 - 10);
     else world.setInset(($('#panel').offsetWidth + 14) / 2, 0);
@@ -376,6 +441,7 @@ function showTourStop() {
 }
 
 function startTour() {
+  if (S.walking) stopStroll();
   if (S.island) closeIsland(false);
   if (S.listing) setList(false, false);
   S.touring = true; S.tourPaused = false; S.tourIdx = 0;
@@ -534,6 +600,12 @@ const actions = {
   tourNext() { S.tourIdx = (S.tourIdx + 1) % ISLANDS.length; showTourStop(); },
   tourMore() { const id = ISLANDS[S.tourIdx].id; stopTour(); openIsland(id); },
   tourEnd() { stopTour(true); },
+  stroll() { if (S.walking) stopStroll(true); else startStroll(world.people.guide()); },
+  strollNext() { startStroll(world.people.guide()); },
+  strollIsland() { openIsland(world.people.followed.here); },
+  strollEnd() { stopStroll(true); },
+  sayFollow() { if (sayWho) startStroll(sayWho.crew); },
+  music() { music.toggle(); },
   labels(el) { S.labels = !S.labels; el.classList.toggle('on', S.labels); $('#labels').classList.toggle('hidden', !S.labels); },
   arcs(el) { S.arcs = !S.arcs; el.classList.toggle('on', S.arcs); world?.showArcs(S.arcs); if (S.arcs) showLinksInfo(); },
   pause(el) { S.paused = !S.paused; el.textContent = S.paused ? '播放' : '暫停'; world?.setPaused(S.paused); },
@@ -545,7 +617,7 @@ const actions = {
     world?.setTimeMode(S.time);
     if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0 });
     else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain });
-    if (S.time === 'night') toast('夜深了，孩子們都回家了，燈塔還亮著');
+    if (S.time === 'night') toast('夜深了，大部分孩子都回家了，燈塔還亮著');
   },
   tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
   modalClose() { closeModal(); },
@@ -609,6 +681,7 @@ window.addEventListener('keydown', (e) => {
     if ($('#lb').classList.contains('open')) actions.lbClose();
     else if ($('#modal').classList.contains('open')) closeModal();
     else if (S.touring) stopTour(true);
+    else if (S.walking) stopStroll(true);
     else if (S.island) closeIsland();
   }
   if ($('#lb').classList.contains('open')) {
@@ -633,8 +706,17 @@ function finishLoading() {
   setTimeout(() => $('#loader').remove(), 900);
 }
 
+function paintMusic(on) {
+  const b = $('#musicBtn');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', on);
+  store.set('smes-music', on);
+}
+
 async function boot() {
   paintQuote(); paintClock(); setHint();
+  music.init(store.get('smes-music', true), paintMusic);
+  paintMusic(music.want);
   setInterval(paintClock, 15000);
   setInterval(loadLive, 15 * 60 * 1000);
   startTickers();
@@ -651,6 +733,7 @@ async function boot() {
   try {
     world = new World($('#world'), {
       onPick: (id) => openIsland(id),
+      onPerson: showSay,
       onHover: (id) => Object.entries(plates).forEach(([k, p]) => p.classList.toggle('hot', k === id)),
       onFrame,
       onHippo: (id, mesh) => {
@@ -667,7 +750,7 @@ async function boot() {
         if (S.touring && (key === 'ArrowLeft' || key === 'ArrowRight')) { actions[key === 'ArrowLeft' ? 'tourPrev' : 'tourNext'](); return true; }
         return false;
       },
-      onEnv: (env) => { $('#schoolState').textContent = env.schoolState || ''; },
+      onEnv: (env) => { $('#schoolState').textContent = env.schoolState || ''; music.setNight(env.night > 0.5); },
       onQuality: () => $('#tiltBtn').classList.remove('on'),
       onInteract: () => { if (S.touring && !S.tourPaused) actions.tourPause($('#tPause')); },
     });
