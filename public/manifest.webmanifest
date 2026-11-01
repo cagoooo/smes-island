@@ -1,0 +1,17 @@
+{
+  "name": "桃園市石門國小品牌群島",
+  "short_name": "石門品牌群島",
+  "description": "鱻鯉鰭源，石門活閱。用 3D 浮空島探索石門國小的閱讀品牌。",
+  "lang": "zh-Hant-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#2f8fd8",
+  "theme_color": "#2f8fd8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

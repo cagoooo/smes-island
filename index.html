@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>桃園市石門國小品牌群島</title>
+<meta name="description" content="鱻鯉鰭源，石門活閱。用 3D 天空之城浮空島探索桃園市龍潭區石門國民小學的品牌閱讀方案，並即時掌握校園公告、天氣與石門水庫水位。" />
+<meta name="theme-color" content="#2f8fd8" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="桃園市石門國小品牌群島" />
+<meta property="og:description" content="鱻鯉鰭源，石門活閱。十二座浮空島，帶你走進百年老校的閱讀品牌。" />
+<meta property="og:site_name" content="石門國小品牌群島" />
+<meta property="og:image" content="https://cagoooo.github.io/smes-island/og.jpg?v=1" />
+<meta property="og:image:secure_url" content="https://cagoooo.github.io/smes-island/og.jpg?v=1" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="桃園市石門國小品牌群島：天空中漂浮著十二座手作風格的浮空島" />
+<meta property="og:url" content="https://cagoooo.github.io/smes-island/" />
+<meta property="og:locale" content="zh_TW" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="桃園市石門國小品牌群島" />
+<meta name="twitter:description" content="鱻鯉鰭源，石門活閱。十二座浮空島，帶你走進百年老校的閱讀品牌。" />
+<meta name="twitter:image" content="https://cagoooo.github.io/smes-island/og.jpg?v=1" />
+<link rel="canonical" href="https://cagoooo.github.io/smes-island/" />
+<link rel="icon" href="./favicon.ico" sizes="any" />
+<link rel="icon" href="./icon-192.png" type="image/png" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+<canvas id="world" aria-label="石門國小品牌群島 3D 場景，可拖曳旋轉、滾輪縮放，點選島嶼查看內容"></canvas>
+<div id="labels" class="labels" aria-hidden="false"></div>
+<div id="app"></div>
+
+<div id="loader" class="loader" role="status">
+  <div class="loader-card">
+    <img src="./brand/fish-mascot.webp" alt="" width="132" height="132" />
+    <h1>桃園市石門國小品牌群島</h1>
+    <p class="loader-sub">鱻鯉鰭源，石門活閱</p>
+    <div class="loader-bar"><span id="loaderBar"></span></div>
+    <p id="loaderText" class="loader-text">展開雲海…</p>
+    <button id="loaderSkip" class="loader-skip" hidden>改看文字清單</button>
+  </div>
+</div>
+
+<noscript><p style="padding:2rem;font-size:1.1rem">本網站需要啟用 JavaScript 才能瀏覽 3D 群島，請開啟後重新整理。</p></noscript>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

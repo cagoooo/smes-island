@@ -1,0 +1,38 @@
+name: 同步校園公告
+
+on:
+  schedule:
+    - cron: '7,37 23,0-11 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fetch-news.mjs /tmp/news.json
+      - name: 寫入 live-data 分支
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch origin live-data 2>/dev/null; then
+            git checkout -B live-data FETCH_HEAD
+          else
+            git checkout --orphan live-data
+            git rm -rf . >/dev/null
+          fi
+          # 只比對公告內容，時間戳記改變不算更新
+          if [ -f news.json ] && [ "$(node -p "JSON.stringify(require('./news.json').items)")" = "$(node -p "JSON.stringify(require('/tmp/news.json').items)")" ]; then
+            echo "公告沒有變化"
+            exit 0
+          fi
+          cp /tmp/news.json news.json
+          git add news.json
+          git commit -m "chore: 同步校園公告"
+          git push origin live-data
