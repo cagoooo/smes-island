@@ -150,6 +150,17 @@ export class World {
 
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
+    // 背景分頁或內嵌瀏覽器載入時尺寸可能為 0，先用預設比例，取得真實尺寸後再定位
+    if (!w || !h) {
+      this.width = this.width || 1280;
+      this.height = this.height || 800;
+      this.camera.aspect = this.width / this.height;
+      this.camera.updateProjectionMatrix();
+      this.sizePending = true;
+      return;
+    }
+    const wasPortrait = this.width < this.height * 0.8;
+    const first = !this.width;
     this.width = w; this.height = h;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -163,6 +174,9 @@ export class World {
       this.vTilt.uniforms.v.value = 2.2 / (h * this.dpr);
     }
     this.insetDirty = true;
+    const portrait = w < h * 0.8;
+    if (!first && this.viewName && !this.focused && (this.sizePending || portrait !== wasPortrait)) this.setView(this.viewName, true);
+    this.sizePending = false;
   }
 
   overviewDistance() {
@@ -341,6 +355,11 @@ export class World {
         this.controls.enabled = true;
         f.done?.();
       }
+    }
+    if (!Number.isFinite(this.camera.position.x + this.camera.position.y + this.camera.position.z)) {
+      this.flight = null;
+      this.controls.enabled = true;
+      this.setView('home', true);
     }
     this.controls.update();
     const ins = this.inset, tar = this.insetTarget, k = Math.min(1, dt * 4.5);
