@@ -232,10 +232,17 @@ export class World {
     this.controls.enabled = false;
   }
 
-  focusIsland(id) {
+  // 整座島塞進畫面寬度所需的距離，直向螢幕看的是水平視角
+  wholeDistance(r) {
+    const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect);
+    return (r * 1.2) / Math.sin(half);
+  }
+
+  focusIsland(id, whole = false) {
     const d = this.defs[id];
     const g = this.islands[id].group.position;
-    const dist = d.zoom * (this.width < this.height ? 1.45 : 1) * (d.id === 'core' ? 1.06 : 1);
+    const near = d.zoom * (this.width < this.height ? 1.45 : 1) * (d.id === 'core' ? 1.06 : 1);
+    const dist = whole ? Math.max(near, this.wholeDistance(d.r)) : near;
     const dirFromCenter = new THREE.Vector3(g.x, 0, g.z);
     const heading = dirFromCenter.lengthSq() < 1 ? 0 : Math.atan2(dirFromCenter.x, dirFromCenter.z) * 0.16;
     const dir = new THREE.Vector3(Math.sin(heading), 0.56, Math.cos(heading)).normalize();

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { World } from './world/world.js';
 import { music } from './ui/sound.js';
 import { initUpdate } from './ui/update.js';
+import { sheet } from './ui/sheet.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
@@ -54,8 +55,8 @@ $('#app').innerHTML = `
 
 <section class="panel" id="panel" aria-label="島嶼內容" aria-hidden="true">
   <div class="panel-head">
-    <button class="handle" data-act="tall" aria-label="展開或收合內容"></button>
-    <div class="ph-row"><button class="round" data-act="prev" aria-label="上一座島">‹</button><span class="kicker" id="pKicker"></span><button class="round" data-act="next" aria-label="下一座島">›</button><button class="round" data-act="close" aria-label="關閉">×</button></div>
+    <button class="handle" data-act="tall" aria-label="展開或收合內容" aria-expanded="true"></button>
+    <div class="ph-row"><button class="round" data-act="prev" aria-label="上一座島">‹</button><span class="kicker" id="pKicker"></span><strong class="peek-name" id="pPeek"></strong><button class="round" data-act="next" aria-label="下一座島">›</button><button class="round" data-act="close" aria-label="關閉">×</button></div>
     <h2 id="pTitle"></h2><p class="motto" id="pMotto"></p>
     <div class="tabs" id="pTabs" role="tablist"></div>
   </div>
@@ -200,7 +201,7 @@ function buildPins(id) {
     b.innerHTML = `<b>${i + 1}</b>${isMobile() ? '' : esc(s.label)}`;
     if (isMobile()) b.setAttribute('aria-label', s.label);
     b.title = s.label;
-    b.addEventListener('click', () => { setTab(s.tab); if (s.item !== undefined) openAct(s.item); });
+    b.addEventListener('click', () => { if (sheet.state === 'peek') sheet.set('half'); setTab(s.tab); if (s.item !== undefined) openAct(s.item); });
     box.appendChild(b);
     return { el: b, anchor: anchors[i], spot: s };
   });
@@ -283,7 +284,7 @@ function onFrame(camera) {
 }
 
 // ───────── 開啟島嶼 ─────────
-function openIsland(id, { tab = 0, fly = true, push = true } = {}) {
+function openIsland(id, { tab = 0, fly = true, push = true, keepSheet = false } = {}) {
   if (S.listing) setList(false, false);
   if (S.touring) stopTour();
   if (S.walking) stopStroll();
@@ -292,9 +293,11 @@ function openIsland(id, { tab = 0, fly = true, push = true } = {}) {
   S.island = id;
   S.tab = tab;
   const panel = $('#panel');
+  const whole = keepSheet && sheet.state === 'peek';
   panel.style.setProperty('--c', d.color);
   $('#pKicker').textContent = d.kicker;
   $('#pTitle').textContent = d.name;
+  $('#pPeek').textContent = d.name;
   $('#pMotto').textContent = d.motto;
   $('#pTabs').innerHTML = content[id].tabs.map((t, i) => `<button role="tab" data-tab="${i}" class="${i === tab ? 'on' : ''}">${esc(t.label)}</button>`).join('');
   const idx = order.indexOf(id);
@@ -308,7 +311,7 @@ function openIsland(id, { tab = 0, fly = true, push = true } = {}) {
   $('#hint').hidden = true;
   Object.entries(plates).forEach(([k, p]) => p.classList.toggle('off', k !== id || isMobile()));
   if (world) {
-    if (fly) world.focusIsland(id);
+    if (fly) world.focusIsland(id, whole);
     buildPins(id);
     world.setHoverRing(null);
   }
@@ -319,9 +322,10 @@ function openIsland(id, { tab = 0, fly = true, push = true } = {}) {
     if (S.stamps.size === order.length) toast('恭喜！閱讀護照十二枚印章全部集滿了');
     else toast(`閱讀護照蓋章：${d.name}（${S.stamps.size} / 12）`);
   }
-  $('#panel').classList.remove('tall');
+  if (!whole) sheet.reset();
   syncView('');
   updateInset();
+  sheetTip();
 }
 
 // 依目前開啟的面板調整場景可視中心
@@ -329,7 +333,7 @@ function updateInset() {
   if (!world) return;
   if (S.touring || S.listing || S.walking) { world.setInset(0, 0); return; }
   if (S.island) {
-    if (isMobile()) world.setInset(0, $('#panel').offsetHeight / 2 - 10);
+    if (isMobile()) world.setInset(0, Math.min(sheet.height, innerHeight * 0.6) / 2 - 10);
     else world.setInset(($('#panel').offsetWidth + 14) / 2, 0);
     return;
   }
@@ -337,10 +341,25 @@ function updateInset() {
 }
 window.addEventListener('resize', updateInset);
 
+// 收合時鏡頭退遠看整座島，拉回來才恢復近看
+function onSheet(state, prev) {
+  updateInset();
+  if (!world || !S.island) return;
+  if (state === 'peek') world.focusIsland(S.island, true);
+  else if (prev === 'peek') world.focusIsland(S.island);
+}
+
+function sheetTip() {
+  if (!isMobile() || store.get('smes-sheet-tip', false)) return;
+  store.set('smes-sheet-tip', true);
+  setTimeout(() => { if (S.island) toast('內容往下滑可以收起來，看見整座島'); }, 3400);
+}
+
 function closeIsland(push = true) {
   if (!S.island) return;
   S.island = null;
-  $('#panel').classList.remove('open', 'tall');
+  $('#panel').classList.remove('open');
+  sheet.reset();
   document.body.classList.remove('reading');
   $('#panel').setAttribute('aria-hidden', 'true');
   $('#watch').classList.remove('away');
@@ -380,7 +399,7 @@ function openAct(i) {
 
 function step(dir) {
   const i = order.indexOf(S.island);
-  openIsland(order[(i + dir + order.length) % order.length]);
+  openIsland(order[(i + dir + order.length) % order.length], { keepSheet: true });
 }
 
 // ───────── 檢視模式 ─────────
@@ -588,7 +607,7 @@ const actions = {
   close() { closeIsland(); },
   prev() { step(-1); },
   next() { step(1); },
-  tall() { $('#panel').classList.toggle('tall'); },
+  tall() { sheet.toggle(); },
   quiz() { showQuiz(); },
   passport() { showPassport(); },
   log() { showLog(); },
@@ -723,6 +742,7 @@ function musicTip() {
 
 async function boot() {
   initUpdate();
+  sheet.init($('#panel'), isMobile, onSheet);
   paintQuote(); paintClock(); setHint();
   music.init(store.get('smes-music', true), paintMusic, musicTip);
   paintMusic(music.want);

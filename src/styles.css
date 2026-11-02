@@ -117,6 +117,7 @@ button.tile:hover { background: var(--paper-3); }
 .panel.open { transform: none; }
 .panel-head { padding: 14px 20px 0; background: linear-gradient(color-mix(in srgb, var(--c) 18%, var(--paper)), var(--paper)); border-top: 5px solid var(--c); position: relative; }
 .handle { display: none; }
+.peek-name { display: none; }
 .ph-row { display: flex; align-items: center; gap: 6px; }
 .ph-row .kicker { flex: 1; text-align: center; font-size: var(--fs-xs); font-weight: 700; color: color-mix(in srgb, var(--c) 72%, var(--ink)); }
 .round { width: 34px; height: 34px; border-radius: 50%; background: #fff9; display: grid; place-items: center; font-size: 1.1rem; color: var(--ink-2); box-shadow: 0 0 0 1px var(--line); flex: none; }
@@ -398,6 +399,15 @@ body.listing .walkbar { display: none; }
   .watch:not(.opened) { transform: translateY(calc(100% + 70px)); opacity: 0; pointer-events: none; }
   .panel { left: 0; right: 0; top: auto; bottom: 0; width: 100%; height: 60dvh; border-radius: var(--r-lg) var(--r-lg) 0 0; transform: translateY(102%); transition: transform .4s cubic-bezier(.2, .85, .2, 1), height .3s; }
   .panel.tall { height: 91dvh; }
+  .panel.peek { height: calc(74px + var(--safe-b)); }
+  .panel.dragging { transition: transform .4s cubic-bezier(.2, .85, .2, 1); }
+  .panel { overflow: clip; }
+  .panel-head, .panel-foot { touch-action: none; }
+  .panel-head .tabs { touch-action: pan-x; }
+  .panel.peek .panel-head { cursor: pointer; }
+  .panel.peek .kicker { display: none; }
+  .panel.peek .panel-head h2, .panel.peek .motto, .panel.peek .tabs { visibility: hidden; }
+  .panel.peek .peek-name { display: block; flex: 1; min-width: 0; text-align: center; font-family: var(--font-display); font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panel-head { padding: 7px 14px 0; }
   .handle { display: block; width: 100%; height: 16px; position: relative; margin-bottom: 2px; }
   .handle::after { content: ""; position: absolute; left: 50%; top: 5px; width: 44px; height: 5px; margin-left: -22px; border-radius: 5px; background: var(--line); }
