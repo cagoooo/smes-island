@@ -2,7 +2,8 @@ name: 同步校園公告
 
 on:
   schedule:
-    - cron: '7,37 23,0-11 * * *'
+    # 台灣時間 07:11～19:41，每小時 11 分、41 分各一次（cron 用 UTC）
+    - cron: '11,41 23,0-11 * * *'
   workflow_dispatch:
 
 permissions:
