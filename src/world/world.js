@@ -44,7 +44,7 @@ export class World {
     this.sky.setShadowSize(this.tier === 'high' ? 2048 : 1024);
     this.clouds = new Clouds(this.scene, this.tier === 'low' ? 0.55 : 1);
     this.rain = new Rain(this.scene);
-    this.env = { night: 0, wind: 8, kidsVisible: 'all' };
+    this.env = { night: 0, wind: 8, rain: 0, kidsVisible: 'all' };
     this.timeMode = 'live';
     this.weather = { cloud: 0.15, rain: 0, wind: 8, thunder: false };
     this.sun = { sunrise: 6.1, sunset: 17.4 };
@@ -374,13 +374,15 @@ export class World {
     this.renderer.toneMappingExposure = 1 + this.env.night * 0.32;
     fallMat.uniforms.uTint.value.copy(this.sky.cloudCol);
     this.env.wind = this.weather.wind;
+    this.env.rain = this.weather.rain;
     this.rain.set(this.weather.rain);
     shared.uWind.value = 0.6 + Math.min(this.weather.wind, 30) / 18;
     const weekday = ![0, 6].includes(now.getDay());
     const schoolHours = hour >= 7.5 && hour <= 16.5;
     const previewDay = this.timeMode === 'day';
     this.env.kidsVisible = this.env.night > 0.5 ? 'none' : (weekday && schoolHours) || previewDay ? 'all' : 'few';
-    this.env.schoolState = this.env.night > 0.5 ? '校園休息中，還有幾個人在島上看星星' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
+    const wet = this.weather.rain > 0.15;
+    this.env.schoolState = this.env.night > 0.5 ? (wet ? '夜雨中，還有幾個人撐著傘提燈回家' : '校園休息中，還有幾個人提著燈籠看星星') : wet ? '下雨了，孩子們撐傘踩水窪' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
     this.hooks.onEnv?.(this.env, hour);
   }
 

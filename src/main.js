@@ -589,7 +589,7 @@ async function loadLive() {
       S.weather = w;
       paintWeather();
       world?.setSun({ sunrise: w.sunrise, sunset: w.sunset });
-      world?.setWeather({ cloud: w.cloud, rain: w.rain, wind: w.wind, thunder: w.thunder });
+      if (S.time === 'live') world?.setWeather({ cloud: w.cloud, rain: w.rain, wind: w.wind, thunder: w.thunder });
     }, () => { if (!S.weather) $('#wx').innerHTML = '<i>⛅</i><div><strong>天氣暫時無法取得</strong><span>龍潭石門</span></div>'; }),
     safe(fetchAir, (a) => { S.air = a; paintWeather(); }),
     safe(fetchReservoir, (r) => { S.res = r; paintReservoir(); }, () => { S.resFail = true; paintReservoir(); }),
@@ -634,14 +634,16 @@ const actions = {
   arcs(el) { S.arcs = !S.arcs; el.classList.toggle('on', S.arcs); world?.showArcs(S.arcs); if (S.arcs) showLinksInfo(); },
   pause(el) { S.paused = !S.paused; el.textContent = S.paused ? '播放' : '暫停'; world?.setPaused(S.paused); },
   time(el) {
-    const seq = [['live', '即時'], ['day', '白天'], ['dusk', '黃昏'], ['night', '夜晚']];
+    const seq = [['live', '即時'], ['day', '白天'], ['rain', '雨天'], ['dusk', '黃昏'], ['night', '夜晚']];
     const i = (seq.findIndex((s) => s[0] === S.time) + 1) % seq.length;
     S.time = seq[i][0];
     el.textContent = seq[i][1];
-    world?.setTimeMode(S.time);
-    if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0 });
+    world?.setTimeMode(S.time === 'rain' ? 'day' : S.time);
+    if (S.time === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8 });
+    else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0 });
     else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain });
-    if (S.time === 'night') toast('夜深了，大部分孩子都回家了，燈塔還亮著');
+    if (S.time === 'rain') toast('下雨了，孩子們撐起傘，還有人跑去踩水窪');
+    if (S.time === 'night') toast('夜深了，留下來的孩子提著燈籠看星星、圍著營火聽故事');
   },
   tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
   modalClose() { closeModal(); },

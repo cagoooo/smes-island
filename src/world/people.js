@@ -1,4 +1,4 @@
-// 島上的老師與學生：分隊走路、過吊橋、跳踏石，抵達後上課、傳球、玩鬼抓人或坐下看書
+// 島上的老師與學生：分隊走路、過吊橋、跳踏石，抵達後上課、傳球、玩鬼抓人或坐下看書；下雨撐傘踩水窪，入夜提燈觀星
 import * as THREE from 'three';
 import { Kit, makeRng } from './kit.js';
 import { NavGrid, Trail } from './nav.js';
@@ -15,6 +15,10 @@ const PANTS = ['#2f4a6b', '#3f5a4a', '#4a4560', '#2f6f53'];
 const HAIR = ['#2a2118', '#3b2a1c', '#1f1a16', '#4a3524'];
 const PACKS = ['#d9432f', '#3d86c6', '#e3a73b', '#5a9b4e', '#a23f8f'];
 const SKIN = ['#ffffff', '#fff3ea', '#f4e2d0'];
+const UMBRELLAS = ['#d9432f', '#f2c230', '#3d86c6', '#5ea85a', '#ef8fa3', '#7a5a9c', '#2f9c95', '#e8743b'];
+const RAIN_AT = 0.15;
+const DARK_AT = 0.5;
+const HIDE = -9999;
 const names = Object.fromEntries(ISLANDS.map((d) => [d.id, d.name]));
 
 const B = new THREE.Matrix4(), L = new THREE.Matrix4(), O = new THREE.Matrix4();
@@ -48,6 +52,9 @@ export class People {
     this.list = [];
     this.crews = [];
     this.followed = null;
+    this.wet = false;
+    this.dark = false;
+    this.pace = 1;
     this.spawn(classes, groups, solos);
     this.buildMeshes(scene);
   }
@@ -71,7 +78,7 @@ export class People {
     const nav = this.islands[id].nav;
     const spot = this.pick(nav.spots.filter((s) => !s.taken));
     const g = this.islands[id].group.position;
-    const c = { id: this.crews.length, here: id, to: id, spot, speed, trail: new Trail(), s: 0, state: 'wait', timer: r() * 7, act: null, members: [], ball: null, rank: 1, on: true, teacher: kinds[0] === 'teacher' };
+    const c = { id: this.crews.length, here: id, to: id, spot, speed, trail: new Trail(), s: 0, state: 'wait', timer: r() * 7, act: null, members: [], ball: null, rank: 1, on: true, teacher: kinds[0] === 'teacher', at: { x: spot.x, z: spot.z, id }, pud: 0, fire: 0 };
     spot.taken = c;
     kinds.forEach((kind, i) => {
       const a = r() * 6.28, cell = nav.nearest(spot.x + Math.cos(a) * 0.8, spot.z + Math.sin(a) * 0.8);
@@ -81,6 +88,7 @@ export class People {
         idx: this.list.length, kind, crew: c, slot: i, body: BODY[kind], s: kind === 'teacher' ? 1.22 : 0.92 + r() * 0.18,
         x: wx, y: wy, z: wz, tx: wx, ty: wy, tz: wz, lx, lz, yaw: r() * 6.28, spd: 0, phase: r() * 6.28, ph: r() * 6.28,
         aL: 0, aR: 0, lL: 0, lR: 0, lift: 0, lean: 0, mode: 'idle', goal: 'idle', face: null, book: false, vis: 1, hidden: false,
+        umb: 0, lamp: 0, look: 0, bare: kind === 'student' && r() < 0.2, lit: kind === 'teacher' || r() < 0.65,
       };
       c.members.push(p);
       this.list.push(p);
@@ -91,8 +99,8 @@ export class People {
   buildMeshes(scene) {
     const r = this.r;
     const geo = (fn) => { const k = new Kit(77); fn(k); return k.build().children[0].geometry; };
-    const inst = (g, count, shadow) => {
-      const m = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), Math.max(1, count));
+    const inst = (g, count, shadow, mat) => {
+      const m = new THREE.InstancedMesh(g, mat || new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), Math.max(1, count));
       m.frustumCulled = false;
       m.castShadow = shadow;
       for (let i = 0; i < m.count; i++) m.setMatrixAt(i, ZERO);
@@ -133,6 +141,35 @@ export class People {
       k.box(0.03, 0.2, 0.32, '#d9432f', 0, -0.92, 0.17, { jitter: 0, wonk: 0, ao: 1 });
     }), n, false);
     this.ballMesh = inst(geo((k) => k.ball(0.13, '#e8743b', 0, 0, 0, { detail: 1, jitter: 0.1, wonk: 0, ao: 1 })), this.crews.length, true);
+    const plain = { jitter: 0, wonk: 0, ao: 1 };
+    const bright = () => new THREE.MeshBasicMaterial({ vertexColors: true });
+    const nc = this.crews.length;
+    this.umbrella = inst(geo((k) => {
+      k.cyl(0.022, 0.8, '#6a5541', 0, 0, 0, { seg: 4, ...plain });
+      k.cone(0.74, 0.3, '#ffffff', 0, 0.62, 0, { seg: 8, ...plain });
+      k.ball(0.035, '#ffffff', 0, 0.93, 0, plain);
+    }), n, true);
+    this.lantern = inst(geo((k) => {
+      k.box(0.11, 0.15, 0.11, '#ffd873', 0, -0.08, 0, plain);
+      k.box(0.14, 0.03, 0.14, '#6b4a2c', 0, 0.07, 0, plain);
+      k.cyl(0.012, 0.1, '#6b4a2c', 0, 0.1, 0, { seg: 4, ...plain });
+    }), n, false, bright());
+    this.logs = inst(geo((k) => {
+      k.box(0.62, 0.09, 0.12, '#5a3a22', 0, 0, 0, plain);
+      k.box(0.12, 0.09, 0.62, '#4a3019', 0, 0.06, 0, plain);
+    }), nc, true);
+    this.flame = inst(geo((k) => {
+      k.cone(0.2, 0.52, '#ff9a2e', 0, 0, 0, { seg: 6, ...plain });
+      k.cone(0.11, 0.34, '#ffe68a', 0, 0.02, 0, { seg: 6, ...plain });
+    }), nc, false, bright());
+    this.puddle = inst(new THREE.CircleGeometry(1, 18).rotateX(-Math.PI / 2), nc, false, new THREE.MeshBasicMaterial({ color: '#a9d6ee', transparent: true, opacity: 0.62, depthWrite: false }));
+    this.ring = inst(new THREE.RingGeometry(0.91, 1, 18).rotateX(-Math.PI / 2), n, false, new THREE.MeshBasicMaterial({ color: '#f2fbff', transparent: true, opacity: 0.6, depthWrite: false }));
+    this.glowAt = new Float32Array((n + nc) * 3).fill(HIDE);
+    const shape = new THREE.BufferGeometry();
+    shape.setAttribute('position', new THREE.BufferAttribute(this.glowAt, 3));
+    this.glow = new THREE.Points(shape, new THREE.PointsMaterial({ size: 5, map: glowTexture(), color: '#ffc06a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    this.glow.frustumCulled = false;
+    scene.add(this.glow);
     const col = new THREE.Color();
     this.list.forEach((p, i) => {
       const teacher = p.kind === 'teacher';
@@ -155,6 +192,7 @@ export class People {
       this.pack.setColorAt(i, col.set(this.pick(PACKS)));
       this.bookMesh.setColorAt(i, col.set(this.pick(['#ffffff', '#ffd9a0', '#bfe3ff', '#c9efc4'])));
       this.flagMesh.setColorAt(i, col.set('#ffffff'));
+      this.umbrella.setColorAt(i, col.set(UMBRELLAS[Math.floor(r() * UMBRELLAS.length)]));
     });
     for (let i = 0; i < this.crews.length; i++) this.ballMesh.setColorAt(i, col.set('#ffffff'));
   }
@@ -264,36 +302,45 @@ export class People {
     const { x, z, clr, look } = c.spot;
     const n = c.members.length;
     c.state = 'play';
+    c.at = { x, z, id: c.here };
     if (c.teacher && n > 1) {
-      c.act = 'lesson';
+      c.act = this.wet ? 'rainclass' : this.dark ? 'stars' : 'lesson';
       c.timer = 15 + r() * 10;
-      // 老師背對地標講解，孩子圍成半圓坐下
+      const talk = c.act === 'stars' ? 'point' : 'talk';
+      const kid = { lesson: 'sit', rainclass: 'idle', stars: 'gaze' }[c.act];
+      // 老師背對地標講解，孩子圍成半圓；雨天站著聽，夜晚坐下看星星
       const ang = look ? Math.atan2(look[1] - z, look[0] - x) + Math.PI : r() * 6.28;
       c.members.forEach((m, i) => {
-        if (i === 0) { this.seat(c, m, x, z, 'talk', Math.atan2(Math.cos(ang), Math.sin(ang))); return; }
+        if (i === 0) { this.seat(c, m, x, z, talk, Math.atan2(Math.cos(ang), Math.sin(ang))); return; }
         const a = ang + (i - (n) / 2) * 0.44, R = 1.9;
         const sx = x + Math.cos(a) * R, sz = z + Math.sin(a) * R;
-        this.seat(c, m, sx, sz, 'sit', Math.atan2(x - sx, z - sz));
+        this.seat(c, m, sx, sz, kid, Math.atan2(x - sx, z - sz));
       });
       return;
     }
     if (n === 1) {
-      c.act = c.teacher ? 'wave' : 'read';
+      const teacher = c.teacher;
+      c.act = this.wet ? 'catch' : this.dark ? (teacher ? 'patrol' : 'nightread') : teacher ? 'wave' : 'read';
       c.timer = 6 + r() * 7;
-      this.seat(c, c.members[0], x, z, c.act === 'wave' ? 'wave' : 'sit', r() * 6.28, !c.teacher);
+      const goal = { wave: 'wave', patrol: 'wave', catch: 'catch' }[c.act] || 'sit';
+      this.seat(c, c.members[0], x, z, goal, r() * 6.28, !teacher && goal === 'sit');
       return;
     }
-    const acts = clr >= 5 ? ['tag', 'ball', 'ball', 'read', 'jump'] : clr >= 4 ? ['ball', 'read', 'jump'] : ['read', 'jump'];
+    const day = clr >= 5 ? ['tag', 'ball', 'ball', 'read', 'jump'] : clr >= 4 ? ['ball', 'read', 'jump'] : ['read', 'jump'];
+    const acts = this.wet ? ['puddle', 'puddle', 'huddle', 'catch'] : this.dark ? (clr >= 4 ? ['camp', 'camp', 'stars'] : ['stars']) : day;
     c.act = this.pick(acts);
-    c.timer = { tag: 10, ball: 12, read: 14, jump: 6 }[c.act] + r() * 7;
+    c.timer = { tag: 10, ball: 12, read: 14, jump: 6, puddle: 11, huddle: 12, catch: 9, camp: 18, stars: 15 }[c.act] + r() * 7;
     c.orbit = r() * 6.28;
+    const R = { read: 0.75, huddle: 0.3, puddle: 1, catch: 0.9, camp: 1.15, stars: 0.95 }[c.act] ?? 1.5;
+    const goal = { jump: 'jump', puddle: 'splash', catch: 'catch', camp: 'warm', stars: 'gaze' }[c.act] || 'idle';
+    const outward = c.act === 'read' || c.act === 'stars' || c.act === 'catch';
     c.members.forEach((m, i) => {
-      const a = (i / n) * 6.283, R = c.act === 'read' ? 0.75 : 1.5;
+      const a = (i / n) * 6.283;
       const sx = x + Math.cos(a) * R, sz = z + Math.sin(a) * R;
       const toCenter = Math.atan2(x - sx, z - sz);
       if (c.act === 'tag') { m.goal = 'run'; m.face = null; m.book = false; return; }
       if (c.act === 'read') this.seat(c, m, sx, sz, 'sit', toCenter + Math.PI, true);
-      else this.seat(c, m, sx, sz, c.act === 'jump' ? 'jump' : 'idle', toCenter);
+      else this.seat(c, m, sx, sz, goal, outward ? toCenter + Math.PI : toCenter);
     });
     if (c.act === 'ball') c.ball = { from: 0, to: 1, u: 0 };
   }
@@ -306,7 +353,7 @@ export class People {
       return;
     }
     if (c.state === 'travel') {
-      c.s = Math.min(c.trail.len, c.s + c.speed * dt);
+      c.s = Math.min(c.trail.len, c.s + c.speed * this.pace * dt);
       while (c.trail.marks.length && c.trail.marks[0].s <= c.s) c.here = c.trail.marks.shift().id;
       const tr = c.trail;
       c.members.forEach((m, i) => {
@@ -380,7 +427,7 @@ export class People {
     const dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
     if (!dt) return;
     const tag = c.act === 'tag';
-    const pace = c.speed * (1 + Math.min(1.1, Math.max(0, d - 0.3) * 0.6)) * (tag ? 2.8 : 1);
+    const pace = c.speed * this.pace * (1 + Math.min(1.1, Math.max(0, d - 0.3) * 0.6)) * (tag ? 2.8 : 1);
     if (d > 0.03) {
       const step = Math.min(d, pace * dt);
       p.x += (dx / d) * step;
@@ -398,7 +445,7 @@ export class People {
   pose(p, t, dt) {
     const k = 1 - Math.exp(-dt * 12);
     const b = p.body;
-    let lL = 0, lR = 0, aL = 0.06, aR = 0.06, lift = 0, lean = 0;
+    let lL = 0, lR = 0, aL = 0.06, aR = 0.06, lift = 0, lean = 0, look = 0;
     const c = p.crew;
     if (p.mode === 'walk') {
       const fast = p.spd > 2;
@@ -410,10 +457,26 @@ export class People {
       aR = lL * 0.85;
       lift = Math.abs(Math.cos(p.phase)) * (fast ? 0.08 : 0.04);
       lean = fast ? 0.22 : 0.05;
-    } else if (p.mode === 'sit') {
+    } else if (p.mode === 'sit' || p.mode === 'gaze' || p.mode === 'warm') {
       lift = 0.1 - b.hip;
       lL = lR = -1.45;
       aL = aR = p.book ? -1 : -0.5;
+      if (p.mode === 'warm') aL = aR = -1.25 + Math.sin(t * 2 + p.ph) * 0.08;
+      if (p.mode === 'gaze') {
+        look = 0.85;
+        if (p.slot % 2 === 0) aR = -2.45 + Math.sin(t * 1.6 + p.ph) * 0.2;
+      }
+    } else if (p.mode === 'splash') {
+      lift = Math.abs(Math.sin(t * 5.2 + p.ph)) * 0.4;
+      aL = -0.7 + Math.sin(t * 5.2 + p.ph) * 0.4;
+      lL = lR = -0.3;
+    } else if (p.mode === 'catch') {
+      look = 0.7;
+      aL = -1.6 + Math.sin(t * 3 + p.ph) * 0.14;
+    } else if (p.mode === 'point') {
+      look = 0.6;
+      aR = -2.55 + Math.sin(t * 1.5 + p.ph) * 0.18;
+      aL = -0.4;
     } else if (p.mode === 'talk') {
       aR = -1.15 + Math.sin(t * 2.3 + p.ph) * 0.4;
       aL = -0.35 + Math.sin(t * 1.4 + p.ph) * 0.15;
@@ -428,21 +491,34 @@ export class People {
     } else if (c.ball && c.ball.from === p.slot && c.ball.u < 0.22) {
       aR = -2.4;
     }
-    const lead = p.slot === 0 && c.teacher && c.members.length > 1 && c.state === 'travel';
+    const lead = p.slot === 0 && c.teacher && c.members.length > 1 && c.state === 'travel' && !this.wet;
     if (lead) aR = -2.65;
     p.flag = lead;
+    // 擠大傘時只有第一個人撐；沒帶傘的抱著頭
+    const huddle = c.act === 'huddle' && c.state === 'play';
+    const holds = this.wet && (huddle ? p.slot === 0 : !p.bare);
+    if (holds) aR = -2.1;
+    else if (huddle) aL = aR = -0.9;
+    else if (this.wet) { aL = aR = -2.85; lean = Math.max(lean, 0.16); }
+    const lamp = this.dark && p.lit;
+    if (lamp && !holds && (p.mode === 'walk' || p.mode === 'idle')) aL = -0.55;
+    const open = 1 - Math.exp(-dt * 7);
+    p.umb += ((holds ? (huddle ? 1.8 : 1) : 0) - p.umb) * open;
+    p.lamp += ((lamp ? 1 : 0) - p.lamp) * open;
+    p.look += (look - p.look) * k;
     p.lL += (lL - p.lL) * k; p.lR += (lR - p.lR) * k;
     p.aL += (aL - p.aL) * k; p.aR += (aR - p.aR) * k;
     p.lift += (lift - p.lift) * k;
     p.lean += (lean - p.lean) * k;
   }
 
-  draw(p) {
+  draw(p, t) {
     const i = p.idx;
     if (p.vis < 0.02) {
       if (p.hidden) return;
       p.hidden = true;
-      for (const m of [this.torso, this.head, p.hair, this.pack, this.bookMesh, this.flagMesh]) m.setMatrixAt(i, ZERO);
+      for (const m of [this.torso, this.head, p.hair, this.pack, this.bookMesh, this.flagMesh, this.umbrella, this.lantern, this.ring]) m.setMatrixAt(i, ZERO);
+      this.glowAt[i * 3 + 1] = HIDE;
       for (const j of [0, 1]) { this.arms.setMatrixAt(i * 2 + j, ZERO); this.legs.setMatrixAt(i * 2 + j, ZERO); }
       return;
     }
@@ -456,7 +532,7 @@ export class People {
     this.pack.setMatrixAt(i, p.kind === 'student' ? part(0, b.hip, 0, 0, 1, b.tor, 1) : ZERO);
     this.bookMesh.setMatrixAt(i, p.book && p.spd < 0.2 ? part(0, b.hip + 0.2 * b.tor, 0.27, -0.75) : ZERO);
     const neck = b.hip + 0.38 * b.tor;
-    part(0, neck, 0, 0, b.head, b.head, b.head);
+    part(0, neck, 0, -p.look, b.head, b.head, b.head);
     this.head.setMatrixAt(i, O);
     p.hair.setMatrixAt(i, O);
     p.other.setMatrixAt(i, ZERO);
@@ -464,26 +540,92 @@ export class People {
     this.arms.setMatrixAt(i * 2, part(-0.205, shoulder, 0, p.aL, 1, b.arm, 1));
     this.arms.setMatrixAt(i * 2 + 1, part(0.205, shoulder, 0, p.aR, 1, b.arm, 1));
     this.flagMesh.setMatrixAt(i, p.flag ? O : ZERO);
+    const u = p.umb;
+    this.umbrella.setMatrixAt(i, u > 0.03 ? part(0.17, shoulder, 0.06, 0, u, 0.5 + 0.5 * Math.min(1, u), u) : ZERO);
+    const lit = p.lamp;
+    if (lit > 0.03) {
+      this.lantern.setMatrixAt(i, part(-0.3, b.hip, 0.18, 0, lit, lit, lit));
+      const sin = Math.sin(p.yaw), cos = Math.cos(p.yaw);
+      this.glowAt[i * 3] = p.x + (-0.3 * cos + 0.18 * sin) * s;
+      this.glowAt[i * 3 + 1] = p.y + (p.lift + b.hip) * s;
+      this.glowAt[i * 3 + 2] = p.z + (0.3 * sin + 0.18 * cos) * s;
+    } else {
+      this.lantern.setMatrixAt(i, ZERO);
+      this.glowAt[i * 3 + 1] = HIDE;
+    }
+    if (p.mode === 'splash' && p.spd < 0.2) {
+      const r = 0.25 + ((t * 0.83 + p.ph) % 1) * 0.75;
+      L.makeScale(r, 1, r);
+      L.setPosition(p.x, p.y + 0.06, p.z);
+      this.ring.setMatrixAt(i, L);
+    } else this.ring.setMatrixAt(i, ZERO);
     this.legs.setMatrixAt(i * 2, part(-0.088, b.hip, 0, p.lL, 1, b.leg, 1));
     this.legs.setMatrixAt(i * 2 + 1, part(0.088, b.hip, 0, p.lR, 1, b.leg, 1));
   }
 
+  // 水窪與營火留在活動地點，換地方時慢慢消失
+  props(c, t, dt) {
+    const k = 1 - Math.exp(-dt * 4);
+    c.pud += ((c.on && c.act === 'puddle' ? 1 : 0) - c.pud) * k;
+    c.fire += ((c.on && c.act === 'camp' ? 1 : 0) - c.fire) * k;
+    const g = this.islands[c.at.id].group.position;
+    const x = g.x + c.at.x, z = g.z + c.at.z;
+    const y = g.y + this.islands[c.at.id].nav.y(c.at.x, c.at.z);
+    if (c.pud > 0.02) {
+      L.makeScale(1.75 * c.pud, 1, 1.45 * c.pud);
+      L.setPosition(x, y + 0.04, z);
+      this.puddle.setMatrixAt(c.id, L);
+    } else this.puddle.setMatrixAt(c.id, ZERO);
+    const glow = (this.list.length + c.id) * 3;
+    if (c.fire > 0.02) {
+      L.makeScale(c.fire, c.fire, c.fire);
+      L.setPosition(x, y + 0.04, z);
+      this.logs.setMatrixAt(c.id, L);
+      const f = c.fire * (1 + Math.sin(t * 13 + c.id) * 0.13);
+      L.makeScale(f, f * (1 + Math.sin(t * 17 + c.id) * 0.1), f);
+      L.setPosition(x, y + 0.12, z);
+      this.flame.setMatrixAt(c.id, L);
+      this.glowAt[glow] = x;
+      this.glowAt[glow + 1] = y + 0.45;
+      this.glowAt[glow + 2] = z;
+    } else {
+      this.logs.setMatrixAt(c.id, ZERO);
+      this.flame.setMatrixAt(c.id, ZERO);
+      this.glowAt[glow + 1] = HIDE;
+    }
+  }
+
+  // 天氣或日夜一變，正在進行的活動很快收尾，換成適合的事
+  react(env) {
+    const wet = (env.rain || 0) > RAIN_AT, dark = env.night > DARK_AT;
+    if (wet === this.wet && dark === this.dark) return;
+    this.wet = wet;
+    this.dark = dark;
+    this.pace = wet ? 1.3 : dark ? 0.85 : 1;
+    for (const c of this.crews) if (c.state === 'play') c.timer = Math.min(c.timer, this.r() * 1.8);
+  }
+
   update(t, dt, env, islands) {
     this.ids.forEach((id, i) => { this.bobs[i] = islands[id].group.position.y - islands[id].base; });
-    const ratio = { all: 1, few: 0.45, none: 0.22 }[env.kidsVisible] ?? 1;
+    this.react(env);
+    const ratio = { all: 1, few: 0.45, none: 0.3 }[env.kidsVisible] ?? 1;
     if (dt && this.queue.length) this.depart(this.queue.shift());
     for (const c of this.crews) {
       c.on = c.rank < ratio || c === this.followed;
-      if (dt) this.tick(c, t, dt);
+      if (dt) { this.tick(c, t, dt); this.props(c, t, dt); }
     }
     const k = 1 - Math.exp(-dt * 3.2);
     for (const p of this.list) {
       this.move(p, dt);
       if (dt) this.pose(p, t, dt);
       p.vis += ((p.crew.on ? 1 : 0) - p.vis) * k;
-      this.draw(p);
+      this.draw(p, t);
     }
-    for (const m of [this.torso, this.head, this.hairA, this.hairB, this.arms, this.legs, this.pack, this.bookMesh, this.flagMesh, this.ballMesh]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [this.torso, this.head, this.hairA, this.hairB, this.arms, this.legs, this.pack, this.bookMesh, this.flagMesh, this.ballMesh, this.umbrella, this.lantern, this.logs, this.flame, this.puddle, this.ring]) m.instanceMatrix.needsUpdate = true;
+    const mat = this.glow.material;
+    if (dt) mat.opacity += ((this.dark ? 0.85 : 0) - mat.opacity) * (1 - Math.exp(-dt * 2));
+    this.glow.visible = mat.opacity > 0.01;
+    this.glow.geometry.attributes.position.needsUpdate = true;
   }
 
   // ───────── 點選、對話與跟隨 ─────────
@@ -510,9 +652,13 @@ export class People {
   lineOf(p) {
     const c = p.crew;
     if (c.state === 'play') {
-      const set = PEOPLE_LINES.act[c.act === 'lesson' ? (p.slot === 0 ? 'teach' : 'listen') : c.act];
+      const lead = p.slot === 0;
+      const key = { lesson: lead ? 'teach' : 'listen', rainclass: lead ? 'rainteach' : 'rainlisten', stars: c.teacher && lead ? 'starteach' : 'stars' }[c.act] || c.act;
+      const set = PEOPLE_LINES.act[key];
       if (set) return this.pick(set);
     }
+    if (this.wet) return this.pick(PEOPLE_LINES.rain);
+    if (this.dark) return this.pick(PEOPLE_LINES.night);
     return this.pick(PEOPLE_LINES.island[c.here]);
   }
 
@@ -526,8 +672,21 @@ export class People {
     const place = names[c.here];
     if (c.state === 'travel') return c.here === c.to ? `正在${place}逛逛` : `正從${place}走向${names[c.to]}`;
     if (c.state === 'wait') return `在${place}準備出發`;
-    return `${{ lesson: '老師正在講解', read: '大家坐下來看書', ball: '大家在傳球', tag: '大家在玩鬼抓人', jump: '大家開心跳起來', wave: '正在和大家揮手' }[c.act] ?? '正在休息'}（${place}）`;
+    return `${{ lesson: '老師正在講解', read: '大家坐下來看書', ball: '大家在傳球', tag: '大家在玩鬼抓人', jump: '大家開心跳起來', wave: '正在和大家揮手', rainclass: '老師撐著傘繼續上課', puddle: '大家在踩水窪', huddle: '大家擠在同一把大傘下', catch: '正在伸手接雨滴', stars: '大家抬頭看星星', camp: '大家圍著營火聊天', patrol: '老師提著燈籠巡視', nightread: '提著燈籠安靜看書' }[c.act] ?? '正在休息'}（${place}）`;
   }
+}
+
+function glowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(32, 32, 1, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,255,255,1)');
+  r.addColorStop(0.28, 'rgba(255,255,255,.42)');
+  r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
 }
 
 export function buildNav(islands, defs) {
