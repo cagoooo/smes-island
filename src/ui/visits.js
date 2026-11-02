@@ -56,4 +56,5 @@ export function rollNumber(el, value, calm) {
     if (u < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
+  setTimeout(() => { el.textContent = value.toLocaleString(); }, COUNT_MS + 300); // 畫面忙碌或在背景時也要顯示正確數字
 }
