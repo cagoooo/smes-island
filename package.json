@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.6.1",
-  "releaseNotes": "閱讀認證標章變大變清楚了，也改成置中排列！",
+  "version": "1.7.0",
+  "releaseNotes": "新增登島人次計數器，看看今天有多少人來逛群島！",
   "type": "module",
   "scripts": {
     "dev": "vite",

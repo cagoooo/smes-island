@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 訪客只能讀取人數，或把數字加 1，不能改成其他值
+    match /stats/visits {
+      allow get: if true;
+      allow create: if request.resource.data.keys().hasOnly(['total']) && request.resource.data.total == 1;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['total'])
+        && request.resource.data.total == resource.data.total + 1;
+    }
+    match /days/{day} {
+      allow get: if day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow create: if day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['total']) && request.resource.data.total == 1;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['total'])
+        && request.resource.data.total == resource.data.total + 1;
+    }
+  }
+}

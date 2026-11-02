@@ -5,6 +5,7 @@ import { World } from './world/world.js';
 import { music } from './ui/sound.js';
 import { initUpdate } from './ui/update.js';
 import { sheet } from './ui/sheet.js';
+import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
@@ -77,7 +78,7 @@ $('#app').innerHTML = `
 </div>
 
 <button class="hintcard card" id="hint" data-act="passport">
-  <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span></span>
+  <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span><span class="visit-line" id="visitLine" hidden>累計 <b id="visitTotal">0</b> 人次登島・今日 <b id="visitToday">0</b> 人</span></span>
 </button>
 <p class="credit">Made with <span class="site-credit__heart" aria-label="愛心">❤️</span> by <a class="site-credit__author" href="${SCHOOL.teacherUrl}" target="_blank" rel="noopener noreferrer">阿凱老師</a></p>
 
@@ -755,6 +756,17 @@ function paintMusic(on) {
   store.set('smes-music', on);
 }
 
+async function showVisits() {
+  try {
+    const v = await countVisit();
+    if (!v) return;
+    $('#visitLine').hidden = false;
+    rollNumber($('#visitTotal'), v.total, calm);
+    rollNumber($('#visitToday'), v.today, calm);
+    if (v.fresh) toast(`歡迎登島！您是今天第 ${v.today.toLocaleString()} 位旅人`);
+  } catch (e) { console.warn('登島人次讀取失敗', e.message); }
+}
+
 function paintSfx(on) {
   const b = $('#sfxBtn');
   b.classList.toggle('on', on);
@@ -869,6 +881,7 @@ async function boot() {
   const tick = (now) => { tourTick(now - prev); prev = now; requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
   await loadLive();
+  showVisits();
   world.start();
   updateInset();
   finishLoading();

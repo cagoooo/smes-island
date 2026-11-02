@@ -81,6 +81,9 @@ small { font-size: .92em; }
 .hintcard img { width: 44px; height: 44px; flex: none; }
 .hintcard strong { display: block; font-family: var(--font-display); font-size: var(--fs-base); }
 .hintcard span { font-size: var(--fs-xs); color: var(--ink-2); }
+.hintcard .visit-line { display: block; margin-top: 1px; }
+.hintcard .visit-line[hidden] { display: none; }
+.visit-line b { color: var(--koi-deep); font-variant-numeric: tabular-nums; }
 .credit { position: fixed; z-index: 19; right: 16px; bottom: calc(74px + var(--safe-b)); font-size: var(--fs-xs); color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .55); }
 .credit a { color: inherit; }
 .site-credit__heart { display: inline-block; margin: 0 2px; }
