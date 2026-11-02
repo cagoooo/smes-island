@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.5.0",
-  "releaseNotes": "聲音更豐富了：晴天、陰天、雨天、夜晚有不同配樂和環境音，還有各種互動音效！",
+  "version": "1.6.0",
+  "releaseNotes": "下雨時魚兒更活潑了：雲魚翻滾、魚群繞著主島盤旋，水池的魚也會跳出水面！",
   "type": "module",
   "scripts": {
     "dev": "vite",

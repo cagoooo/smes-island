@@ -4,6 +4,11 @@ import { Kit, G, makeRng } from './kit.js';
 import { C } from './props.js';
 import { shared } from './materials.js';
 
+const LEAP_HEIGHT = 15;
+const LEAP_TIME = 3.4;
+const NOW = new THREE.Vector3();
+const NEXT = new THREE.Vector3();
+
 // ───────── 雲魚：沿身體長軸做波動的大鯉魚 ─────────
 function koiGeometry(palette) {
   const k = new Kit(11);
@@ -57,8 +62,9 @@ function koiMaterial() {
 }
 
 export class Life {
-  constructor(scene, islands) {
+  constructor(scene, islands, calm) {
     this.scene = scene;
+    this.calm = calm;
     this.fish = [];
     const palettes = [['#e23f2a', '#fff3e4', '#ef8a32'], ['#ffffff', '#fff3e4', '#e8452f'], ['#2f83c8', '#dff0fa', '#7cc0e8'], ['#e8a22f', '#fff0d0', '#d9622b']];
     const paths = [
@@ -76,8 +82,10 @@ export class Life {
       mesh.castShadow = true;
       mesh.scale.setScalar(p.s);
       scene.add(mesh);
-      this.fish.push({ mesh, ...p });
+      this.fish.push({ mesh, ...p, a: p.ph, b: p.ph, u: -1, wait: 3 + i * 3.5, spit: 0 });
     });
+    this.w = 0;
+    this.spray = null;
     this.buildSchool(scene);
     this.buildPlanes(scene);
     this.buildAirship(scene, islands);
@@ -174,22 +182,80 @@ export class Life {
     }
   }
 
-  update(t) {
+  // 大雲魚的路徑，下雨時上下起伏更大，還會躍起翻滾
+  koiAt(f, a, b, u, out) {
+    const lift = u >= 0 ? Math.sin(Math.min(1, u) * Math.PI) * LEAP_HEIGHT * f.s : 0;
+    const near = 1 - this.w * 0.42; // 下雨時游近群島，全景才看得到
+    return out.set(Math.cos(a) * f.rx * near, f.y + Math.sin(b) * (4 + this.w * 7) + lift, Math.sin(a) * f.rz * near);
+  }
+
+  updateKoi(f, dt, wet) {
+    const w = this.w;
+    f.a += f.sp * dt * (1 + w * 0.9);
+    f.b += dt * (0.3 + w * 0.5);
+    f.mesh.material.userData.phase.value += dt * w * 5; // 尾巴擺得更快
+    if (f.u >= 0) {
+      f.u += dt / LEAP_TIME;
+      f.spit -= dt;
+      if (f.spit <= 0 && f.u < 1) {
+        f.spit = 0.09;
+        this.spray?.(f.mesh.position.x, f.mesh.position.y, f.mesh.position.z, 3, 3.4, 0.2);
+      }
+      if (f.u >= 1) { f.u = -1; f.wait = 7 + Math.random() * 9; }
+      return;
+    }
+    if (!wet || this.calm) return;
+    f.wait -= dt;
+    if (f.wait <= 0) f.u = 0;
+  }
+
+  // 小魚群：下雨時分成三群，螺旋上升、波浪起伏、快速衝刺
+  schoolAt(s, i, t, out) {
+    const w = this.w;
+    const a = s.a + t * s.sp;
+    const r = s.rad + Math.sin(t * 0.6 + s.ph) * 2.4;
+    const y = s.y + Math.sin(t * 1.1 + s.ph) * 1.2;
+    s.fade = 1;
+    if (w < 0.01) return out.set(Math.cos(a) * r, y, Math.sin(a) * r - 3);
+    let ra, rr, ry;
+    if (i % 3 === 0) {
+      const h = (t * 0.07 + s.ph / 6.283) % 1;
+      ra = s.a + t * 0.85;
+      rr = 12 + (1 - h) * 24;
+      ry = 8 + h * 36;
+      s.fade = Math.min(1, Math.sin(h * Math.PI) * 4);
+    } else if (i % 3 === 1) {
+      ra = a;
+      rr = r + Math.sin(a * 2) * 6;
+      ry = s.y + Math.sin(a * 4 + t * 1.6) * 9;
+    } else {
+      ra = s.a + t * s.sp * 2.6;
+      rr = s.rad + 12;
+      ry = s.y - 4 + Math.abs(Math.sin(ra * 3 + s.ph)) * 15;
+    }
+    const x = Math.cos(a) * r + (Math.cos(ra) * rr - Math.cos(a) * r) * w;
+    const z = Math.sin(a) * r + (Math.sin(ra) * rr - Math.sin(a) * r) * w;
+    return out.set(x, y + (ry - y) * w, z - 3);
+  }
+
+  update(t, dt, wet) {
+    this.w += ((wet ? 1 : 0) - this.w) * (1 - Math.exp(-dt * 0.9));
     for (const f of this.fish) {
-      const a = t * f.sp + f.ph;
-      const x = Math.cos(a) * f.rx, z = Math.sin(a) * f.rz;
-      const y = f.y + Math.sin(t * 0.3 + f.ph) * 4;
-      const a2 = a + 0.02 * Math.sign(f.sp);
-      f.mesh.position.set(x, y, z);
-      f.mesh.lookAt(Math.cos(a2) * f.rx, f.y + Math.sin((t + 0.2) * 0.3 + f.ph) * 4, Math.sin(a2) * f.rz);
+      this.updateKoi(f, dt, wet);
+      this.koiAt(f, f.a, f.b, f.u, NOW);
+      this.koiAt(f, f.a + 0.02 * Math.sign(f.sp), f.b + 0.03, f.u >= 0 ? f.u + 0.02 : -1, NEXT);
+      f.mesh.position.copy(NOW);
+      f.mesh.lookAt(NEXT);
+      if (f.u >= 0) f.mesh.rotateZ(f.u * 6.283);
     }
     const d = this.dummy;
     this.schoolData.forEach((s, i) => {
-      const a = s.a + t * s.sp;
-      const r = s.rad + Math.sin(t * 0.6 + s.ph) * 2.4;
-      d.position.set(Math.cos(a) * r, s.y + Math.sin(t * 1.1 + s.ph) * 1.2, Math.sin(a) * r - 3);
-      d.rotation.set(0, -a, Math.sin(t * 3 + s.ph) * 0.2);
-      d.scale.setScalar(1.2);
+      this.schoolAt(s, i, t, NOW);
+      this.schoolAt(s, i, t + 0.06, NEXT);
+      d.position.copy(NOW);
+      d.lookAt(NEXT);
+      d.rotateZ(Math.sin(t * 3 + s.ph) * 0.2);
+      d.scale.setScalar((1.2 + this.w * 0.9) * (1 - this.w + this.w * s.fade));
       d.updateMatrix();
       this.school.setMatrixAt(i, d.matrix);
     });

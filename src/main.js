@@ -653,7 +653,7 @@ const actions = {
     else if (S.time === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0 });
     else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0 });
     else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain });
-    if (S.time === 'rain') toast('下雨了，孩子們撐起傘，還有人跑去踩水窪');
+    if (S.time === 'rain') toast('下雨了！孩子們撐傘踩水窪，魚兒開心得跳出水面');
     if (S.time === 'night') toast('夜深了，留下來的孩子拿著手電筒看星星、圍著營火聽故事');
   },
   tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
