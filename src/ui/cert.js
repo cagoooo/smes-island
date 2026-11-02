@@ -1,5 +1,6 @@
 // 小河馬尋寶證書：找到 6 隻、12 隻各領一張，孩子帶去校長室換獎勵
-// 班級姓名只存在這台裝置，用 canvas 畫成圖片，不經過任何伺服器
+// 證書用 canvas 畫在裝置上；班級姓名另外送到學校的試算表，校長室用來核對領獎（後端在 gas/）
+const API = 'https://script.google.com/macros/s/AKfycbyH1eIe5fGM319XxjBJf5Eb_PHjMvAS9SDXnlffIm0Pjycftp3F8Pd152iIOWnAn9WF/exec';
 const KEY = 'smes-hippo-cert';
 const W = 2000;
 const H = 1414;
@@ -26,6 +27,26 @@ export function issue(level, cls, name) {
   info.dates[level] ||= taipeiDate();
   certInfo.set(info);
   return info;
+}
+
+export const validName = (s) => /^[\p{L}\p{M}·‧．]{1,12}$/u.test(s);
+
+// 送不出去不影響孩子拿證書，下次開網站再補送；後端用編號與姓名去除重複
+export async function sendCerts() {
+  const info = certInfo.get();
+  if (!info || !import.meta.env.PROD || location.hostname === 'localhost') return;
+  info.sent ||= {};
+  for (const level of Object.keys(info.dates)) {
+    if (info.sent[level]) continue;
+    try {
+      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ level, cls: info.cls, name: info.name, date: info.dates[level], code: serial(level, info) }) });
+      const r = await res.json();
+      if (r.ok || r.error === 'invalid' || r.error === 'code') {
+        info.sent[level] = true; // 資料格式不對時重送也不會過，不要一直試
+        certInfo.set(info);
+      }
+    } catch { /* 網路不通時留待下次補送 */ }
+  }
 }
 
 function serial(level, info) {

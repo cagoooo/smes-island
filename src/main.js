@@ -7,7 +7,7 @@ import { initUpdate } from './ui/update.js';
 import { sheet } from './ui/sheet.js';
 import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
-import { TIERS, certInfo, issue, drawCert, printCert, certTiers } from './ui/cert.js';
+import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
@@ -528,20 +528,21 @@ function showPassport() {
     <h3 class="hippo-title">小河馬圖鑑</h3>
     ${hippoGrid(S.hippos)}
     ${S.hippos.size === 12 ? '<div class="btn-row"><button class="cta koi" data-act="finaleAgain">再慶祝一次</button></div>' : ''}
-    <p class="note" style="margin-top:10px">護照紀錄只存在你這台裝置的瀏覽器裡。</p>
+    <p class="note" style="margin-top:10px">蓋章和小河馬紀錄只存在你這台裝置的瀏覽器裡，領證書時班級和姓名會傳給學校。</p>
     ${S.hippos.size || certInfo.get() ? '<p class="note"><button class="text-btn" data-act="certReset">共用平板？換下一位小朋友</button></p>' : ''}</div>`);
 }
 
 // 第一次領證書才填姓名，之後兩張證書都用同一個名字，避免共用平板上直接改名再領一張
 function showCertForm(level) {
   openModal(`${dialogHead(`領取「${TIERS[level].title}」證書`)}<div class="dialog-body cert-form">
-    <p>請填上你的班級和姓名，它們會寫在證書上。</p>
-    <label>班級<input id="certClass" maxlength="10" autocomplete="off" placeholder="例如：三年二班"></label>
+    <p>請選班級、填上姓名，它們會寫在證書上。</p>
+    <div class="cert-row"><label>年級<select id="certGrade"><option value="">請選擇</option>${[...'一二三四五六'].map((g) => `<option>${g}</option>`).join('')}</select></label>
+    <label>班級<select id="certRoom"><option value="">請選擇</option>${[...'一二三四五六七八九十'].map((g) => `<option>${g}</option>`).join('')}</select></label></div>
     <label>姓名<input id="certName" maxlength="12" autocomplete="off" placeholder="請寫真實姓名"></label>
-    <p class="cert-err" id="certErr" role="alert" hidden>班級和姓名都要填哦</p>
+    <p class="cert-err" id="certErr" role="alert" hidden></p>
     <div class="btn-row"><button class="cta koi" data-act="certCheck" data-level="${level}">下一步</button></div>
-    <p class="note" style="margin-top:10px">班級和姓名只留在這台裝置，不會上傳到網路。</p></div>`);
-  $('#certClass').focus();
+    <p class="note" style="margin-top:10px">班級和姓名會傳給學校，只用來發放獎勵與統計活動成果，活動結束後就會刪除。</p></div>`);
+  $('#certGrade').focus();
 }
 
 let certUrl = '';
@@ -550,6 +551,7 @@ async function showCert(level) {
   const info = certInfo.get();
   if (!info) { showCertForm(level); return; }
   const fresh = issue(level);
+  sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
     <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
@@ -704,9 +706,12 @@ const actions = {
   finaleCert(t) { closeFinale(); showCert(+t.dataset.level); },
   certOpen(t) { showCert(+t.dataset.level); },
   certCheck(t) {
-    const cls = $('#certClass').value.trim();
+    const grade = $('#certGrade').value;
+    const room = $('#certRoom').value;
     const name = $('#certName').value.trim();
-    if (!cls || !name) { $('#certErr').hidden = false; return; }
+    const err = !grade || !room || !name ? '年級、班級和姓名都要填哦' : validName(name) ? '' : '姓名只能填文字，不能有空格、數字或符號哦';
+    if (err) { $('#certErr').textContent = err; $('#certErr').hidden = false; return; }
+    const cls = `${grade}年${room}班`;
     const { level } = t.dataset;
     openModal(`${dialogHead('確認證書上的名字')}<div class="dialog-body cert-form">
       <p class="cert-who">${esc(cls)}　${esc(name)}</p>
@@ -723,7 +728,8 @@ const actions = {
       <p>這台裝置的小河馬紀錄和證書都會清除，下一位小朋友要重新尋找。已經存下來或印出來的證書不受影響。</p>
       <div class="btn-row"><button class="cta koi" data-act="certResetGo">確定清除</button><button class="cta lake" data-act="modalClose">先不要</button></div></div>`);
   },
-  certResetGo() {
+  async certResetGo() {
+    await Promise.race([sendCerts(), new Promise((ok) => { setTimeout(ok, 3000); })]);
     store.set('smes-hippos', []);
     certInfo.clear();
     location.reload();
@@ -998,6 +1004,7 @@ async function boot() {
   requestAnimationFrame(tick);
   await loadLive();
   showVisits();
+  sendCerts();
   world.start();
   updateInset();
   finishLoading();

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.9.0",
-  "releaseNotes": "小河馬尋寶證書登場！找到 6 隻、12 隻都能領證書，帶到校長室領取獎勵",
+  "version": "1.10.0",
+  "releaseNotes": "證書領取改為選單填寫，學校也能即時收到領獎名單",
   "type": "module",
   "scripts": {
     "dev": "vite",

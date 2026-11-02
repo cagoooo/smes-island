@@ -525,7 +525,8 @@ body.listing .walkbar { display: none; }
 .cert-tier.on { background: var(--c); color: #fff; box-shadow: var(--shadow-rest); cursor: pointer; }
 .cert-tier.on:hover { transform: translateY(-2px); }
 .cert-form label { display: block; margin-top: 10px; font-weight: 700; }
-.cert-form input { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 400; color: var(--ink); background: #fff; border: 1px solid var(--line, #cdbfa7); border-radius: 8px; }
+.cert-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cert-form input, .cert-form select { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 400; color: var(--ink); background: #fff; border: 1px solid var(--line, #cdbfa7); border-radius: 8px; }
 .cert-err { margin-top: 8px; color: #b23a2a; font-weight: 700; }
 .cert-who { font-family: var(--font-display); font-size: var(--fs-xl); text-align: center; margin: 6px 0; }
 .cert-view { display: grid; place-items: center; min-height: 200px; }
