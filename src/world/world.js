@@ -13,6 +13,7 @@ import { Sky } from './sky.js';
 import { Clouds } from './clouds.js';
 import { Life } from './life.js';
 import { People, buildNav } from './people.js';
+import { HippoFx } from './hippo-fx.js';
 import { buildBridges, buildCloudSteps, buildArcs, Rain } from './links.js';
 import { shared, fallMat } from './materials.js';
 import { ISLANDS, BRIDGES, STEPS, LINKS, TALL } from '../data/site.js';
@@ -153,6 +154,7 @@ export class World {
     }
     this.colliders = Object.values(this.islands).map((i) => i.collider);
     this.hippoMeshes = this.life.hippos.map((h) => h.mesh);
+    this.hippoFx = new HippoFx(this.scene, this.life.hippos, window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
   setupComposer() {
@@ -258,6 +260,12 @@ export class World {
 
   clearFocus() { this.focused = null; }
 
+  // 場景物件目前在螢幕上的位置
+  screenOf(obj) {
+    const v = obj.getWorldPosition(new THREE.Vector3()).project(this.camera);
+    return { x: ((v.x + 1) / 2) * this.width, y: ((1 - v.y) / 2) * this.height };
+  }
+
   setHoverRing(id) {
     for (const [k, is] of Object.entries(this.islands)) is.ringTarget = k === id ? 0.78 : 0;
   }
@@ -269,7 +277,7 @@ export class World {
       const r = c.getBoundingClientRect();
       this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     };
-    c.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY, performance.now()]; this.hooks.onInteract?.(); });
+    c.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY, e.timeStamp]; this.hooks.onInteract?.(); });
     c.addEventListener('pointermove', (e) => {
       update(e);
       if (e.pointerType === 'mouse' && !this.flight) this.hoverDirty = true;
@@ -278,7 +286,7 @@ export class World {
     c.addEventListener('pointerup', (e) => {
       if (!downAt) return;
       const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
-      const quick = performance.now() - downAt[2] < 500;
+      const quick = e.timeStamp - downAt[2] < 500; // 用事件時間，畫面忙碌時才不會把點一下誤判成長按
       downAt = null;
       if (moved > 7 || !quick) return;
       update(e);
@@ -435,6 +443,7 @@ export class World {
       for (const d of is.dyn) d.update?.(t, this.env);
     }
     this.life.update(t);
+    this.hippoFx.update(t, dt);
     this.people.update(t, this.paused ? 0 : dt, this.env, this.islands);
     const crew = this.people.followed;
     if (crew && !this.flight) {

@@ -148,8 +148,8 @@ export class Life {
     this.hippos = [];
     const r = makeRng(33);
     const spots = {
-      core: [-15, 3, 2.6], course: [-11.2, 0.05, -3], inquiry: [2.4, 0.05, 11.4], walk: [-1, 2.9, -9.3], digital: [10.8, 0.05, 2.2], library: [-9.6, 0.05, -3.6],
-      admin: [8.6, 0.05, -1.4], teacher: [-9, 0.05, -2.2], results: [-2.4, 2, -0.4], forest: [-5.4, 0.05, 6.4], brand: [8.6, 0.05, 3.4], future: [6.6, 0.05, -3.4],
+      core: [-15, 0.05, 2.6], course: [-11.2, 0.05, -3], inquiry: [2.4, 0.05, 11.4], walk: [-1, 3.28, -9.3], digital: [10.8, 0.05, 2.2], library: [-9.6, 0.05, -3.6],
+      admin: [8.6, 0.05, -1.4], teacher: [-9, 0.05, -2.2], results: [-2.4, 1.33, -0.4], forest: [-5.4, 0.05, 6.4], brand: [8.6, 0.05, 3.4], future: [6.6, 0.05, -3.4],
     };
     for (const [id, [x, y, z]] of Object.entries(spots)) {
       const is = islands[id];

@@ -5,7 +5,8 @@ import { World } from './world/world.js';
 import { music } from './ui/sound.js';
 import { initUpdate } from './ui/update.js';
 import { sheet } from './ui/sheet.js';
-import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS } from './data/site.js';
+import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
+import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
@@ -157,7 +158,7 @@ const closeModal = () => $('#modal').classList.remove('open');
 const dialogHead = (title) => `<div class="dialog-head"><h2>${esc(title)}</h2><button class="round" data-act="modalClose" aria-label="關閉">×</button></div>`;
 
 function setHint() {
-  $('#hintText').textContent = `雲端藏了 12 隻小河馬，已找到 ${S.hippos.size} 隻`;
+  $('#hintText').textContent = S.hippos.size === 12 ? '12 隻小河馬全部找到了，你是小達人！' : `雲端藏了 12 隻小河馬，已找到 ${S.hippos.size} 隻`;
 }
 
 // ───────── 島嶼名牌與定位點 ─────────
@@ -512,8 +513,11 @@ function showQuiz(i = 0, tally = {}) {
 
 function showPassport() {
   openModal(`${dialogHead('大河馬閱讀護照')}<div class="dialog-body">
-    <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面仔細找找看。</p>
+    <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面找找看閃閃發光的地方。</p>
     <div class="stamps">${ISLANDS.map((d) => `<button class="stamp ${S.stamps.has(d.id) ? 'on' : ''}" style="--c:${d.color}" data-goto="${d.id}">${esc(d.name)}</button>`).join('')}</div>
+    <h3 class="hippo-title">小河馬圖鑑</h3>
+    ${hippoGrid(S.hippos)}
+    ${S.hippos.size === 12 ? '<div class="btn-row"><button class="cta koi" data-act="finaleAgain">再慶祝一次</button></div>' : ''}
     <p class="note" style="margin-top:10px">護照紀錄只存在你這台裝置的瀏覽器裡。</p></div>`);
 }
 
@@ -647,6 +651,9 @@ const actions = {
   },
   tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
   modalClose() { closeModal(); },
+  finaleClose() { closeFinale(); },
+  finalePassport() { closeFinale(); showPassport(); },
+  finaleAgain() { closeModal(); celebrate(); },
   lbClose() { $('#lb').classList.remove('open'); },
   lbPrev() { showLb(lbIndex - 1); },
   lbNext() { showLb(lbIndex + 1); },
@@ -739,6 +746,28 @@ function paintMusic(on) {
   store.set('smes-music', on);
 }
 
+function celebrate() {
+  world.hippoFx.celebrate();
+  if (!S.island) world.setView('home');
+  setTimeout(showFinale, calm ? 0 : 1500);
+}
+
+function foundHippo(id, mesh) {
+  const h = HIPPOS[id];
+  if (S.hippos.has(id)) {
+    world.hippoFx.hop(id, 0.55);
+    toast(`${h.name}：「${h.line}」`);
+    return;
+  }
+  S.hippos.add(id);
+  store.set('smes-hippos', [...S.hippos]);
+  world.hippoFx.found(id, world.camera);
+  flyCount(world.screenOf(mesh));
+  setTimeout(setHint, calm ? 0 : 1000);
+  showFound(id, S.hippos.size);
+  if (S.hippos.size === 12) setTimeout(celebrate, 2600);
+}
+
 // 手機工具列比螢幕寬：箭頭提示還有更多按鈕，滑動手勢失靈時也點得到
 function slideDock(dir) {
   const dock = $('.dock');
@@ -789,15 +818,7 @@ async function boot() {
       onPerson: showSay,
       onHover: (id) => Object.entries(plates).forEach(([k, p]) => p.classList.toggle('hot', k === id)),
       onFrame,
-      onHippo: (id, mesh) => {
-        if (S.hippos.has(id)) { toast('這隻小河馬已經找過囉！'); return; }
-        S.hippos.add(id);
-        store.set('smes-hippos', [...S.hippos]);
-        mesh.scale.setScalar(1.6);
-        setTimeout(() => mesh.scale.setScalar(1.15), 600);
-        setHint();
-        toast(S.hippos.size === 12 ? '全部 12 隻小河馬都找到了！你是大河馬書房小達人' : `找到小河馬 ${S.hippos.size} / 12`);
-      },
+      onHippo: foundHippo,
       onArrow: (key) => {
         if (S.island && (key === 'ArrowLeft' || key === 'ArrowRight')) { step(key === 'ArrowLeft' ? -1 : 1); return true; }
         if (S.touring && (key === 'ArrowLeft' || key === 'ArrowRight')) { actions[key === 'ArrowLeft' ? 'tourPrev' : 'tourNext'](); return true; }
@@ -808,6 +829,7 @@ async function boot() {
       onInteract: () => { if (S.touring && !S.tourPaused) actions.tourPause($('#tPause')); },
     });
     await world.build((p, label) => { bar.style.width = `${Math.round(p * 100)}%`; text.textContent = label; });
+    world.hippoFx.restore(S.hippos);
   } catch (e) {
     console.error(e);
     fallback();

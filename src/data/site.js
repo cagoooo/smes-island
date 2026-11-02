@@ -73,6 +73,22 @@ export const LINKS = [
 ];
 
 // 點一下島上的老師或學生會說的話
+// 藏在各島的小河馬，每隻都有自己的名字
+export const HIPPOS = {
+  core: { name: '樹根小河馬', line: '世界樹的根，是我的祕密書櫃！' },
+  course: { name: '書海小河馬', line: '我在書海裡游泳，一點都不怕水！' },
+  inquiry: { name: '好奇小河馬', line: '為什麼？為什麼？我最愛問為什麼！' },
+  walk: { name: '水庫小河馬', line: '今天的水位，我幫你看過了！' },
+  digital: { name: '掃碼小河馬', line: '掃一下 QR Code，我就出現了！' },
+  library: { name: '書房小河馬', line: '噓！圖書館要輕聲細語喔。' },
+  admin: { name: '燈塔小河馬', line: '我負責幫大家顧燈塔！' },
+  teacher: { name: '備課小河馬', line: '老師們在備課，我也來幫忙！' },
+  results: { name: '星光小河馬', line: '每個孩子都是一顆星星！' },
+  forest: { name: '森林小河馬', line: '我最喜歡躲在書屋後面了！' },
+  brand: { name: '飛艇小河馬', line: '下一站，把閱讀帶到更遠的地方！' },
+  future: { name: '曙光小河馬', line: '老校不老，一起迎接曙光！' },
+};
+
 export const PEOPLE_LINES = {
   act: {
     teach: ['大家看這裡，這座島有好多故事喔！', '等一下要把看到的寫進學習單喔！', '誰知道這裡的故事？舉手告訴老師！'],
