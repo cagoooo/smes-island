@@ -655,6 +655,11 @@ export class People {
     this.glow.geometry.attributes.position.needsUpdate = true;
   }
 
+  // 鏡頭附近有沒有正在做某件事的隊伍，用來決定要不要出聲
+  near(act, pos, range) {
+    return this.crews.some((c) => c.on && c.state === 'play' && c.act === act && Math.hypot(c.members[0].x - pos.x, c.members[0].y - pos.y, c.members[0].z - pos.z) < range);
+  }
+
   // ───────── 點選、對話與跟隨 ─────────
   // 用螢幕距離判斷，人物很小時也點得到；太遠就讓給島嶼
   pickAt(nx, ny, camera, H) {

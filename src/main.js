@@ -94,6 +94,7 @@ $('#app').innerHTML = `
     <button data-act="arcs">跨域串聯</button>
     <button data-act="pause" id="pauseBtn">暫停</button>
     <button data-act="music" id="musicBtn" aria-pressed="true">音樂</button>
+    <button data-act="sfx" id="sfxBtn" aria-pressed="true">音效</button>
     <button data-act="time" id="timeBtn" title="切換時間">即時</button>
     <button class="on desk-only" data-act="tilt" id="tiltBtn" title="微縮移軸特效">移軸</button>
     <button data-act="log">日誌</button>
@@ -230,6 +231,7 @@ function hideSay() {
 }
 
 function showSay(p) {
+  music.sfx('pop');
   hideSay();
   sayWho = p;
   sayEl = document.createElement('div');
@@ -319,7 +321,9 @@ function openIsland(id, { tab = 0, fly = true, push = true, keepSheet = false } 
     world.setHoverRing(null);
   }
   if (push && location.hash !== `#/${id}`) history.pushState(null, '', `#/${id}`);
+  music.sfx('whoosh');
   if (!S.stamps.has(id)) {
+    music.sfx('stamp');
     S.stamps.add(id);
     store.set('smes-stamps', [...S.stamps]);
     if (S.stamps.size === order.length) toast('恭喜！閱讀護照十二枚印章全部集滿了');
@@ -388,7 +392,7 @@ function renderTab() {
   paintReservoir();
 }
 
-function setTab(i) { S.tab = i; renderTab(); }
+function setTab(i) { music.sfx('page'); S.tab = i; renderTab(); }
 
 function openAct(i) {
   const a = $(`#pBody [data-act="${i}"]`);
@@ -455,6 +459,7 @@ let tourTimer = 0;
 const TOUR_MS = 9000;
 
 function showTourStop() {
+  music.sfx('whoosh');
   const d = ISLANDS[S.tourIdx];
   $('#tTitle').textContent = d.name;
   $('#tProg').textContent = `${S.tourIdx + 1} / ${ISLANDS.length}`;
@@ -634,16 +639,18 @@ const actions = {
   strollEnd() { stopStroll(true); },
   sayFollow() { if (sayWho) startStroll(sayWho.crew); },
   music() { music.toggle(); },
+  sfx() { music.toggleSfx(); },
   labels(el) { S.labels = !S.labels; el.classList.toggle('on', S.labels); $('#labels').classList.toggle('hidden', !S.labels); },
   arcs(el) { S.arcs = !S.arcs; el.classList.toggle('on', S.arcs); world?.showArcs(S.arcs); if (S.arcs) showLinksInfo(); },
   pause(el) { S.paused = !S.paused; el.textContent = S.paused ? '播放' : '暫停'; world?.setPaused(S.paused); },
   time(el) {
-    const seq = [['live', '即時'], ['day', '白天'], ['rain', '雨天'], ['dusk', '黃昏'], ['night', '夜晚']];
+    const seq = [['live', '即時'], ['day', '白天'], ['cloudy', '陰天'], ['rain', '雨天'], ['dusk', '黃昏'], ['night', '夜晚']];
     const i = (seq.findIndex((s) => s[0] === S.time) + 1) % seq.length;
     S.time = seq[i][0];
     el.textContent = seq[i][1];
-    world?.setTimeMode(S.time === 'rain' ? 'day' : S.time);
+    world?.setTimeMode(S.time === 'rain' || S.time === 'cloudy' ? 'day' : S.time);
     if (S.time === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8 });
+    else if (S.time === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0 });
     else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0 });
     else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain });
     if (S.time === 'rain') toast('下雨了，孩子們撐起傘，還有人跑去踩水窪');
@@ -674,6 +681,7 @@ document.addEventListener('click', (e) => {
   const t = e.target.closest('button,a');
   if (!t) { if (e.target.id === 'modal') closeModal(); if (e.target.id === 'lb') actions.lbClose(); return; }
   const d = t.dataset;
+  if (d.tab === undefined && d.quiz === undefined) music.sfx('tap');
   if (d.act !== undefined && d.act !== '' && actions[d.act]) { actions[d.act](t); return; }
   if (d.tab !== undefined) { setTab(+d.tab); return; }
   if (d.view) {
@@ -700,6 +708,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (d.quiz !== undefined) {
+    music.sfx(+d.quiz + 1 >= QUIZ.length ? 'chime' : 'correct');
     const tally = JSON.parse($('#dialog').dataset.tally || '{}');
     tally[d.k] = (tally[d.k] || 0) + 1;
     showQuiz(+d.quiz + 1, tally);
@@ -746,8 +755,17 @@ function paintMusic(on) {
   store.set('smes-music', on);
 }
 
+function paintSfx(on) {
+  const b = $('#sfxBtn');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', on);
+  store.set('smes-sfx', on);
+}
+
 function celebrate() {
   world.hippoFx.celebrate();
+  music.sfx('cheer');
+  music.sfx('chime');
   if (!S.island) world.setView('home');
   setTimeout(showFinale, calm ? 0 : 1500);
 }
@@ -756,12 +774,15 @@ function foundHippo(id, mesh) {
   const h = HIPPOS[id];
   if (S.hippos.has(id)) {
     world.hippoFx.hop(id, 0.55);
+    music.sfx('boing');
     toast(`${h.name}：「${h.line}」`);
     return;
   }
   S.hippos.add(id);
   store.set('smes-hippos', [...S.hippos]);
   world.hippoFx.found(id, world.camera);
+  music.sfx('found');
+  music.sfx('horn');
   flyCount(world.screenOf(mesh));
   setTimeout(setHint, calm ? 0 : 1000);
   showFound(id, S.hippos.size);
@@ -789,7 +810,7 @@ function initDock() {
 function musicTip() {
   if (!matchMedia('(pointer: coarse)').matches || store.get('smes-music-tip', false)) return;
   store.set('smes-music-tip', true);
-  toast('背景音樂開始了，把下方工具列滑到最右邊就能關閉');
+  toast('背景音樂開始了，下方工具列可以關閉音樂和音效');
 }
 
 async function boot() {
@@ -797,8 +818,9 @@ async function boot() {
   sheet.init($('#panel'), isMobile, onSheet);
   initDock();
   paintQuote(); paintClock(); setHint();
-  music.init(store.get('smes-music', true), paintMusic, musicTip);
+  music.init({ want: store.get('smes-music', true), sfx: store.get('smes-sfx', true), onChange: paintMusic, onStart: musicTip, onSfx: paintSfx });
   paintMusic(music.want);
+  paintSfx(music.sfxOn);
   setInterval(paintClock, 15000);
   setInterval(loadLive, 15 * 60 * 1000);
   startTickers();
@@ -824,7 +846,11 @@ async function boot() {
         if (S.touring && (key === 'ArrowLeft' || key === 'ArrowRight')) { actions[key === 'ArrowLeft' ? 'tourPrev' : 'tourNext'](); return true; }
         return false;
       },
-      onEnv: (env) => { $('#schoolState').textContent = env.schoolState || ''; music.setNight(env.night > 0.5); },
+      onEnv: (env) => {
+        $('#schoolState').textContent = env.schoolState || '';
+        music.setMood({ night: env.night > 0.5, rain: env.rain > 0.15, cloud: env.cloud >= 0.6, thunder: env.thunder });
+      },
+      onSplash: () => music.sfx('splash'),
       onQuality: () => $('#tiltBtn').classList.remove('on'),
       onInteract: () => { if (S.touring && !S.tourPaused) actions.tourPause($('#tPause')); },
     });

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.4.0",
-  "releaseNotes": "找到小河馬有彩紙和翻跳動畫，12 隻各有名字和圖鑑，集滿還有大慶祝！",
+  "version": "1.5.0",
+  "releaseNotes": "聲音更豐富了：晴天、陰天、雨天、夜晚有不同配樂和環境音，還有各種互動音效！",
   "type": "module",
   "scripts": {
     "dev": "vite",

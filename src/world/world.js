@@ -383,6 +383,8 @@ export class World {
     fallMat.uniforms.uTint.value.copy(this.sky.cloudCol);
     this.env.wind = this.weather.wind;
     this.env.rain = this.weather.rain;
+    this.env.cloud = this.weather.cloud;
+    this.env.thunder = this.weather.thunder;
     this.rain.set(this.weather.rain);
     shared.uWind.value = 0.6 + Math.min(this.weather.wind, 30) / 18;
     const weekday = ![0, 6].includes(now.getDay());
@@ -445,6 +447,11 @@ export class World {
     this.life.update(t);
     this.hippoFx.update(t, dt);
     this.people.update(t, this.paused ? 0 : dt, this.env, this.islands);
+    this.earClock = (this.earClock || 0) - dt;
+    if (this.earClock <= 0) {
+      this.earClock = 1.3;
+      if (this.people.near('puddle', this.camera.position, 34)) this.hooks.onSplash?.();
+    }
     const crew = this.people.followed;
     if (crew && !this.flight) {
       const lead = crew.members[0];
