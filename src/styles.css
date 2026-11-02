@@ -425,3 +425,20 @@ body.listing .walkbar { display: none; }
   .loader-card img, .watch-head .pulse { animation: none; }
   .panel, .watch { transition: none; }
 }
+
+/* 新版通知 */
+.update-card { position: fixed; z-index: 60; left: 50%; bottom: calc(78px + var(--safe-b)); transform: translateX(-50%); width: min(520px, calc(100vw - 28px)); display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 14px 16px; animation: update-in .35s cubic-bezier(.2, .85, .2, 1); }
+.update-card img { border-radius: 50%; }
+.update-card strong { display: block; font-family: var(--font-display); font-size: var(--fs-md); }
+.update-card p { font-size: var(--fs-xs); color: var(--ink-2); line-height: 1.45; }
+.update-ctl { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.update-ctl .cta { justify-content: center; padding: 8px 15px; }
+.update-ctl .cta:disabled { opacity: .7; cursor: wait; }
+.update-ctl [data-update="later"] { padding: 3px 8px; font-size: var(--fs-xs); color: var(--ink-2); }
+@keyframes update-in { from { opacity: 0; transform: translate(-50%, 14px); } }
+@media (prefers-reduced-motion: reduce) { .update-card { animation: none; } }
+@media (max-width: 560px) {
+  .update-card { grid-template-columns: auto 1fr; bottom: calc(66px + var(--safe-b)); }
+  .update-ctl { grid-column: 1 / -1; flex-direction: row-reverse; justify-content: flex-start; align-items: center; }
+  .update-ctl .cta { flex: 1; }
+}

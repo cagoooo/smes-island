@@ -10,6 +10,7 @@
 - 音樂：`public/audio/` 兩首來自 [Pixabay](https://pixabay.com/music/)，採 Pixabay Content License，作者 CHAse9602，上架者標示為 AI 生成
   - 白天：[The Wind Awakening Memories of the Forest](https://pixabay.com/music/modern-classical-the-wind-awakening-memories-of-the-forest-468155/)
   - 夜晚：[The Floating Garden of Stars (Dreamy Edit)](https://pixabay.com/music/modern-classical-the-floating-garden-of-stars-dreamy-edit-524428/)
+- 版本：改版時更新 `package.json` 的 `version` 與 `releaseNotes`（通知卡片的說明）。`vite.config.js` 以提交時間加雜湊產生版本並寫入 `sw.js`，Service Worker 裝好新版後由 `src/ui/update.js` 提示訪客更新
 
 ```bash
 npm install

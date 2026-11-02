@@ -3,6 +3,9 @@ name: 部署到 GitHub Pages
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/update-news.yml'
   workflow_dispatch:
 
 permissions:

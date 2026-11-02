@@ -2,6 +2,23 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8" />
+<script>
+// 舊頁面指向已刪除的打包檔時，清掉自己的快取重來一次；同網域的其他專案不能動
+addEventListener('error', function (e) {
+  var src = e.target && (e.target.src || e.target.href);
+  if (!src || src.indexOf('/assets/') < 0) return;
+  try { if (sessionStorage.getItem('smes-island-heal')) return; sessionStorage.setItem('smes-island-heal', '1'); } catch (err) { return; }
+  var scope = new URL('./', location.href).href;
+  var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations() : Promise.resolve([]);
+  sw.then(function (regs) {
+    return Promise.all(regs.filter(function (r) { return r.scope === scope; }).map(function (r) { return r.unregister(); }));
+  }).then(function () {
+    return 'caches' in window ? caches.keys() : [];
+  }).then(function (keys) {
+    return Promise.all(keys.filter(function (k) { return k.indexOf('smes-island-') === 0; }).map(function (k) { return caches.delete(k); }));
+  }).finally(function () { location.reload(); });
+}, true);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>桃園市石門國小品牌群島</title>
 <meta name="description" content="鱻鯉鰭源，石門活閱。用 3D 天空之城浮空島探索桃園市龍潭區石門國民小學的品牌閱讀方案，並即時掌握校園公告、天氣與石門水庫水位。" />

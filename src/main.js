@@ -3,11 +3,12 @@ import './styles.css';
 import * as THREE from 'three';
 import { World } from './world/world.js';
 import { music } from './ui/sound.js';
+import { initUpdate } from './ui/update.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
-const VERSION = 'v1.1.0';
+const VERSION = `v${__APP_VERSION__}`;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const byId = Object.fromEntries(ISLANDS.map((d) => [d.id, d]));
@@ -121,7 +122,7 @@ $('#app').innerHTML = `
       <div class="footer-bottom">
         <p class="site-credit">Made with <span class="site-credit__heart" aria-label="愛心">❤️</span> by <a href="${SCHOOL.teacherUrl}" target="_blank" rel="noopener noreferrer" class="site-credit__author">阿凱老師</a><span class="footer-school"><span class="footer-dot" aria-hidden="true">・</span>${SCHOOL.name}</span></p>
         <p>${SCHOOL.address}｜${SCHOOL.phone}</p>
-        <p class="version-tag">${VERSION}</p>
+        <p class="version-tag" title="${__BUILD_VERSION__}">${VERSION}</p>
       </div>
     </div>
   </footer>
@@ -714,6 +715,7 @@ function paintMusic(on) {
 }
 
 async function boot() {
+  initUpdate();
   paintQuote(); paintClock(); setHint();
   music.init(store.get('smes-music', true), paintMusic);
   paintMusic(music.want);
