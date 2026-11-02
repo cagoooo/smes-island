@@ -623,7 +623,7 @@ export class People {
     }
     for (const m of [this.torso, this.head, this.hairA, this.hairB, this.arms, this.legs, this.pack, this.bookMesh, this.flagMesh, this.ballMesh, this.umbrella, this.lantern, this.logs, this.flame, this.puddle, this.ring]) m.instanceMatrix.needsUpdate = true;
     const mat = this.glow.material;
-    if (dt) mat.opacity += ((this.dark ? 0.85 : 0) - mat.opacity) * (1 - Math.exp(-dt * 2));
+    if (dt) mat.opacity += ((this.dark ? 0.5 : 0) - mat.opacity) * (1 - Math.exp(-dt * 2));
     this.glow.visible = mat.opacity > 0.01;
     this.glow.geometry.attributes.position.needsUpdate = true;
   }
