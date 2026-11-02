@@ -671,7 +671,7 @@ function showLb(i) {
   if (!g.length) return;
   lbIndex = (i + g.length) % g.length;
   const it = g[lbIndex];
-  $('#lbImg').src = full(it.id);
+  $('#lbImg').src = it.src || full(it.id);
   $('#lbImg').alt = it.cap;
   $('#lbCap').textContent = it.cap;
   $('#lb').classList.add('open');

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.6.0",
-  "releaseNotes": "下雨時魚兒更活潑了：雲魚翻滾、魚群繞著主島盤旋，水池的魚也會跳出水面！",
+  "version": "1.6.1",
+  "releaseNotes": "閱讀認證標章變大變清楚了，也改成置中排列！",
   "type": "module",
   "scripts": {
     "dev": "vite",

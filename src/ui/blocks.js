@@ -121,7 +121,7 @@ export function renderBlock(b, ctx) {
     case 'domains':
     case 'cards': return `<div class="cards">${b.items.map((c) => `<div class="cardlet"><b>${esc(c.k)}</b>${esc(c.text)}</div>`).join('')}</div>`;
     case 'columns': return `<div class="cols">${b.items.map((c) => `<div class="cardlet"><b>${esc(c.k)}</b><ul class="bullets">${c.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}</div>`;
-    case 'badges': return `<div class="badges">${b.items.map((i) => { const n = reg(i); return `<button data-lb="${n}"><img loading="lazy" src="${thumb(i.id)}" alt="${esc(i.cap)}">${esc(i.cap)}</button>`; }).join('')}</div>`;
+    case 'badges': return `<div class="badges">${b.items.map((i) => { const src = `./images/badge/${i.id}.webp`; const n = reg({ ...i, src }); return `<button data-lb="${n}"><img loading="lazy" src="${src}" alt="${esc(i.cap)}"><span>${esc(i.cap)}</span></button>`; }).join('')}</div>`;
     case 'live-reservoir': return reservoirBlock();
     default: return '';
   }
