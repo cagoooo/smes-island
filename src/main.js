@@ -96,9 +96,11 @@ $('#app').innerHTML = `
     <button data-act="time" id="timeBtn" title="切換時間">即時</button>
     <button class="on desk-only" data-act="tilt" id="tiltBtn" title="微縮移軸特效">移軸</button>
     <button data-act="log">日誌</button>
-    <button class="mob-only" data-act="watch">即時</button>
+    <button class="mob-only" data-act="watch">瞭望台</button>
   </div>
 </nav>
+<button class="dock-nav prev" id="dockPrev" data-act="dockPrev" aria-label="往前看工具列" hidden>‹</button>
+<button class="dock-nav next" id="dockNext" data-act="dockNext" aria-label="往後看更多工具" hidden>›</button>
 
 <section class="listview" id="listview" aria-label="文字清單">
   <div class="wrap">
@@ -608,6 +610,8 @@ const actions = {
   prev() { step(-1); },
   next() { step(1); },
   tall() { sheet.toggle(); },
+  dockPrev() { slideDock(-1); },
+  dockNext() { slideDock(1); },
   quiz() { showQuiz(); },
   passport() { showPassport(); },
   log() { showLog(); },
@@ -733,6 +737,23 @@ function paintMusic(on) {
   store.set('smes-music', on);
 }
 
+// 手機工具列比螢幕寬：箭頭提示還有更多按鈕，滑動手勢失靈時也點得到
+function slideDock(dir) {
+  const dock = $('.dock');
+  dock.scrollBy({ left: dir * dock.clientWidth * 0.7, behavior: calm ? 'auto' : 'smooth' });
+}
+
+function initDock() {
+  const dock = $('.dock');
+  const paint = () => {
+    $('#dockPrev').hidden = dock.scrollLeft < 4;
+    $('#dockNext').hidden = dock.scrollLeft > dock.scrollWidth - dock.clientWidth - 4;
+  };
+  dock.addEventListener('scroll', paint, { passive: true });
+  window.addEventListener('resize', paint);
+  paint();
+}
+
 // 手機的音樂按鈕在工具列最右邊，第一次出聲時告訴訪客怎麼關
 function musicTip() {
   if (!matchMedia('(pointer: coarse)').matches || store.get('smes-music-tip', false)) return;
@@ -743,6 +764,7 @@ function musicTip() {
 async function boot() {
   initUpdate();
   sheet.init($('#panel'), isMobile, onSheet);
+  initDock();
   paintQuote(); paintClock(); setHint();
   music.init(store.get('smes-music', true), paintMusic, musicTip);
   paintMusic(music.want);

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.2.2",
-  "releaseNotes": "手機看島更清楚了：內容往下滑就能收起來，欣賞整座島。",
+  "version": "1.2.3",
+  "releaseNotes": "手機下方工具列可以左右滑動了，點箭頭也能看到更多功能。",
   "type": "module",
   "scripts": {
     "dev": "vite",
