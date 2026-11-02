@@ -2,6 +2,8 @@
 import data from '../data/content.json';
 
 export const sizes = data.sizes;
+// 原圖太小時回傳原圖寬度，顯示時不要超過它，拉大只會更糊
+export const nativeWidth = (id) => { const [w, , scale = 1] = sizes[id] || []; return scale > 1 ? Math.round(w / scale) : 0; };
 export const content = data.islands;
 
 export const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -22,7 +24,8 @@ function photo(item) {
 function fig(item) {
   const i = reg(item);
   const [w, h] = sizes[item.id] || [4, 3];
-  return `<button class="fig" data-lb="${i}"><img loading="lazy" decoding="async" src="${full(item.id)}" width="${w}" height="${h}" alt="${esc(item.cap)}"><span>${esc(item.cap)}</span></button>`;
+  const native = nativeWidth(item.id);
+  return `<button class="fig" data-lb="${i}"><img loading="lazy" decoding="async" src="${full(item.id)}" width="${w}" height="${h}"${native ? ` style="max-width:${native}px"` : ''} alt="${esc(item.cap)}"><span>${esc(item.cap)}</span></button>`;
 }
 
 // 長條圖：單一色相、細柱、圓角頂端，懸停時顯示數值；表格放在下方作為文字版

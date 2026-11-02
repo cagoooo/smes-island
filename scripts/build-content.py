@@ -167,8 +167,8 @@ def save(im, id_):
     t = im.copy()
     t.thumbnail((560, 560), Image.LANCZOS)
     t.save(os.path.join(THUMB_DIR, f'{id_}.webp'), quality=70, method=5)
-    # 第三個數字是放大倍率，看大圖時用來限制照片的顯示尺寸；文字圖要讀得到字，不限制
-    sizes[id_] = [big.size[0], big.size[1], 1 if id_ in DOCS else round(im.size[0] / src_w)]
+    # 第三個數字是放大倍率：大於 1 代表原圖太小，網頁只用原圖大小顯示
+    sizes[id_] = [big.size[0], big.size[1], round(im.size[0] / src_w)]
 
 
 # ───────── 主島：品牌型塑 ─────────

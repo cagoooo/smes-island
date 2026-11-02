@@ -188,7 +188,7 @@ button.tile:hover { background: var(--paper-3); }
 .act-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 9px; }
 .act-photos .ph span { display: none; }
 .fig { padding: 8px; background: #fff; border-radius: 6px; box-shadow: var(--shadow-rest); width: 100%; display: block; text-align: left; }
-.fig img { width: 100%; height: auto; }
+.fig img { display: block; width: 100%; height: auto; margin: 0 auto; }
 .fig span { display: block; font-size: var(--fs-xs); color: var(--ink-3); margin-top: 5px; }
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; counter-reset: st; }
 .steps div { background: var(--paper-2); padding: 9px 12px; border-radius: var(--r-sm); line-height: 1.5; font-size: var(--fs-sm); }
@@ -343,6 +343,8 @@ table.t tr.total td { font-weight: 700; background: var(--paper-2); }
 .lb-view { display: contents; }
 .lb img { max-width: min(100%, var(--lb-max, 100%)); max-height: calc(100dvh - 110px); object-fit: contain; background: #fff; border-radius: 4px; cursor: zoom-in; transition: opacity .15s; }
 .lb img.wait { opacity: .45; }
+.lb.native img { cursor: default; }
+.lb.native figcaption small { display: none; }
 .lb.zoom figure { width: 100%; }
 .lb.zoom .lb-view { display: block; width: 100%; height: calc(100dvh - 110px); overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y pinch-zoom; -webkit-overflow-scrolling: touch; }
 .lb.zoom img { max-width: none; max-height: none; cursor: grab; }

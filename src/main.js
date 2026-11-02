@@ -9,7 +9,7 @@ import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
-import { content, renderBlock, currentGallery, resetGallery, esc, full, sizes, ilrRows, flatten } from './ui/blocks.js';
+import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
 const VERSION = `v${__APP_VERSION__}`;
@@ -787,9 +787,10 @@ function showLb(i) {
     img.classList.add('wait');
     img.src = src;
   }
-  // 原圖很小的照片不要撐滿螢幕，拉得越大越糊；想看細節再點圖放大
-  const [w, , scale = 1] = sizes[it.id] || [];
-  img.style.setProperty('--lb-max', scale > 1 ? `${Math.round(w / scale * 1.8)}px` : '100%');
+  // 原圖太小就用原圖大小顯示，也不提供放大，拉大只會更糊
+  const native = nativeWidth(it.id);
+  img.style.setProperty('--lb-max', native ? `${native}px` : '100%');
+  $('#lb').classList.toggle('native', !!native);
   img.alt = it.cap;
   $('#lbCap').textContent = it.cap;
   $('#lbLink').hidden = !it.link;
@@ -817,7 +818,7 @@ function lbZoom(on, e) {
 let lbDrag = null;
 $('#lbImg').addEventListener('load', (e) => e.target.classList.remove('wait'));
 $('#lbImg').addEventListener('click', (e) => {
-  if (lbDrag?.moved) return;
+  if (lbDrag?.moved || $('#lb').classList.contains('native')) return;
   lbZoom(!$('#lb').classList.contains('zoom'), e);
 });
 $('#lbView').addEventListener('pointerdown', (e) => {

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.11.1",
-  "releaseNotes": "照片重新處理，點開更乾淨，雜點和鋸齒變少了",
+  "version": "1.11.2",
+  "releaseNotes": "解析度較低的圖片改用原圖大小顯示，看起來不再模糊",
   "type": "module",
   "scripts": {
     "dev": "vite",
