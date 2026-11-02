@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.11.2",
-  "releaseNotes": "解析度較低的圖片改用原圖大小顯示，看起來不再模糊",
+  "version": "1.12.0",
+  "releaseNotes": "黃昏有專屬配樂了！夕陽時段換上溫暖的吉他曲",
   "type": "module",
   "scripts": {
     "dev": "vite",

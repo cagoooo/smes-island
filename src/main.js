@@ -1022,7 +1022,7 @@ async function boot() {
       },
       onEnv: (env) => {
         $('#schoolState').textContent = env.schoolState || '';
-        music.setMood({ night: env.night > 0.5, rain: env.rain > 0.15, cloud: env.cloud >= 0.6, thunder: env.thunder });
+        music.setMood({ night: env.night > 0.5, dusk: env.dusk, rain: env.rain > 0.15, cloud: env.cloud >= 0.6, thunder: env.thunder });
       },
       onSplash: () => music.sfx('splash'),
       onQuality: () => $('#tiltBtn').classList.remove('on'),

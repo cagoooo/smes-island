@@ -384,6 +384,7 @@ export class World {
     const hour = { live, day: 11, dusk: sunset - 0.1, night: 22 }[this.timeMode] ?? live;
     this.sky.update({ hour, sunrise, sunset, cloud: this.weather.cloud });
     this.env.night = this.sky.env.night;
+    this.env.dusk = hour >= sunset - 1 && hour <= sunset + 0.5; // 日落前一小時到日落後半小時
     this.renderer.toneMappingExposure = 1 + this.env.night * 0.32;
     fallMat.uniforms.uTint.value.copy(this.sky.cloudCol);
     this.env.wind = this.weather.wind;

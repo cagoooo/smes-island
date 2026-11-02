@@ -11,7 +11,7 @@
 - 魚：`src/world/life.js` 控制天空的雲魚與小魚群，`src/world/rain-fish.js` 控制島上水池的魚、雨圈與水花，下雨時動作都會變得更活潑
 - 小河馬：`src/world/hippo-fx.js` 負責場景特效，`src/ui/hippo.js` 負責卡片、圖鑑與集滿慶祝，名字與台詞在 `src/data/site.js` 的 `HIPPOS`
 - 聲音：`src/ui/sound.js` 依天氣與日夜切換配樂與環境音，互動音效用 Web Audio 播放；音檔都在 `public/audio/`，來自 [Pixabay](https://pixabay.com/)，採 Pixabay Content License
-  - 配樂：白天 The Wind Awakening Memories of the Forest、夜晚 The Floating Garden of Stars (Dreamy Edit)（CHAse9602，上架者標示為 AI 生成）；陰天 Warm Acoustic（AtlasAudio）；雨天 A rainy day（Tomomi_Kato）
+  - 配樂：白天 The Wind Awakening Memories of the Forest、夜晚 The Floating Garden of Stars (Dreamy Edit)（CHAse9602，上架者標示為 AI 生成）；陰天 Warm Acoustic（AtlasAudio）；雨天 A rainy day（Tomomi_Kato）；黃昏 Sundowners（MonkeyBandito，Pixabay）。
   - 環境音：Gentle Rain 07（DRAGON-STUDIO）、Night cricket ambience、birds in the morning（freesound_community）
   - 音效：floraphonic、Universfield、DRAGON-STUDIO、paulseling、chrisiex1、Soumages、49053354、freesound_community
 - 版本：改版時更新 `package.json` 的 `version` 與 `releaseNotes`（通知卡片的說明）。`vite.config.js` 以提交時間加雜湊產生版本並寫入 `sw.js`，Service Worker 裝好新版後由 `src/ui/update.js` 提示訪客更新
