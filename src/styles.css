@@ -341,7 +341,7 @@ table.t tr.total td { font-weight: 700; background: var(--paper-2); }
 .lb.open { display: grid; }
 .lb figure { margin: 0; max-width: min(1200px, 100%); max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .lb-view { display: contents; }
-.lb img { max-width: 100%; max-height: calc(100dvh - 110px); object-fit: contain; background: #fff; border-radius: 4px; cursor: zoom-in; transition: opacity .15s; }
+.lb img { max-width: min(100%, var(--lb-max, 100%)); max-height: calc(100dvh - 110px); object-fit: contain; background: #fff; border-radius: 4px; cursor: zoom-in; transition: opacity .15s; }
 .lb img.wait { opacity: .45; }
 .lb.zoom figure { width: 100%; }
 .lb.zoom .lb-view { display: block; width: 100%; height: calc(100dvh - 110px); overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y pinch-zoom; -webkit-overflow-scrolling: touch; }

@@ -133,13 +133,16 @@ def enlarge(im, id_):
     scale = min(4, 1600 // max(im.size))
     if scale < 2:
         return im
-    lr = np.asarray(im.convert('RGB'), dtype=np.float32)
+    doc = id_ in DOCS
+    rgb = np.asarray(im.convert('RGB'))
+    # 照片先去掉 Word 壓縮的方塊雜點，否則補邊時會被放大成鋸齒；文字圖要保留筆畫，不去雜點
+    lr = np.float32(rgb if doc else cv2.fastNlMeansDenoisingColored(rgb, None, 3, 5, 5, 15))
     h, w = lr.shape[:2]
     size = (w * scale, h * scale)
     hr = cv2.resize(lr, size, interpolation=cv2.INTER_LANCZOS4)
-    for _ in range(6):
+    for _ in range(6 if doc else 2):
         hr += cv2.resize(lr - cv2.resize(hr, (w, h), interpolation=cv2.INTER_AREA), size, interpolation=cv2.INTER_CUBIC)
-    hr += (.5 if id_ in DOCS else .3) * (hr - cv2.GaussianBlur(hr, (0, 0), scale * .6))
+    hr += (.5 if doc else .2) * (hr - cv2.GaussianBlur(hr, (0, 0), scale * .6))
     out = Image.fromarray(np.clip(hr, 0, 255).astype(np.uint8))
     if im.mode == 'RGBA':
         out.putalpha(im.getchannel('A').resize(size, Image.LANCZOS))
@@ -156,6 +159,7 @@ def mask_names(im, id_):
 
 def save(im, id_):
     has_alpha = im.mode in ('RGBA', 'LA', 'P')
+    src_w = im.size[0]
     im = mask_names(enlarge(im.convert('RGBA' if has_alpha else 'RGB'), id_), id_)
     big = im.copy()
     big.thumbnail((2000, 2000), Image.LANCZOS)
@@ -163,7 +167,8 @@ def save(im, id_):
     t = im.copy()
     t.thumbnail((560, 560), Image.LANCZOS)
     t.save(os.path.join(THUMB_DIR, f'{id_}.webp'), quality=70, method=5)
-    sizes[id_] = [big.size[0], big.size[1]]
+    # 第三個數字是放大倍率，看大圖時用來限制照片的顯示尺寸；文字圖要讀得到字，不限制
+    sizes[id_] = [big.size[0], big.size[1], 1 if id_ in DOCS else round(im.size[0] / src_w)]
 
 
 # ───────── 主島：品牌型塑 ─────────

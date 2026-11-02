@@ -9,7 +9,7 @@ import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
-import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
+import { content, renderBlock, currentGallery, resetGallery, esc, full, sizes, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
 const VERSION = `v${__APP_VERSION__}`;
@@ -787,6 +787,9 @@ function showLb(i) {
     img.classList.add('wait');
     img.src = src;
   }
+  // 原圖很小的照片不要撐滿螢幕，拉得越大越糊；想看細節再點圖放大
+  const [w, , scale = 1] = sizes[it.id] || [];
+  img.style.setProperty('--lb-max', scale > 1 ? `${Math.round(w / scale * 1.8)}px` : '100%');
   img.alt = it.cap;
   $('#lbCap').textContent = it.cap;
   $('#lbLink').hidden = !it.link;
