@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.10.0",
-  "releaseNotes": "證書領取改為選單填寫，學校也能即時收到領獎名單",
+  "version": "1.11.0",
+  "releaseNotes": "新增小河馬尋寶任務說明，導覽也會帶你認識尋寶、領證書和到校長室領獎勵",
   "type": "module",
   "scripts": {
     "dev": "vite",

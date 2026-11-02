@@ -261,6 +261,7 @@ table.t tr.total td { font-weight: 700; background: var(--paper-2); }
 .tourbar h3 { font-family: var(--font-display); font-size: var(--fs-lg); }
 .tourbar .prog { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .tourbar p { line-height: 1.65; margin: 2px 0 8px; font-size: var(--fs-base); }
+.tourbar .t-hippo { margin-top: -6px; font-size: var(--fs-sm); font-weight: 700; color: var(--koi); }
 .tourbar .ctl { display: flex; gap: 6px; flex-wrap: wrap; }
 .tourbar .ctl button { padding: 5px 13px; border-radius: 99px; background: var(--paper-3); font-size: var(--fs-sm); font-weight: 500; }
 .tourbar .ctl button.main { background: var(--ink); color: var(--paper); font-weight: 700; }
@@ -540,3 +541,12 @@ body.listing .walkbar { display: none; }
   body > :not(#certPrint) { display: none !important; }
   #certPrint { display: block; width: 100%; height: auto; }
 }
+
+/* 小河馬尋寶任務 */
+.mission { list-style: none; counter-reset: step; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.mission li { counter-increment: step; position: relative; padding: 9px 12px 9px 50px; background: #fff8; border-radius: 10px; line-height: 1.55; }
+.mission li::before { content: counter(step); position: absolute; left: 12px; top: 10px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--koi); color: #fff; font-weight: 700; }
+.mission strong { display: block; font-family: var(--font-display); font-size: var(--fs-lg); }
+.mission span { display: block; font-size: var(--fs-sm); color: var(--ink-2); }
+.mission-now { margin-top: 12px; text-align: center; font-weight: 700; }
+.mission-now b { color: var(--koi); font-size: var(--fs-lg); }

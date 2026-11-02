@@ -68,8 +68,8 @@ $('#app').innerHTML = `
 </section>
 
 <div class="tourbar card" id="tourbar" hidden><div class="inner">
-  <div class="tt"><h3 id="tTitle"></h3><span class="prog" id="tProg"></span></div><p id="tText"></p>
-  <div class="ctl"><button data-act="tourPrev">‹ 上一座</button><button class="main" data-act="tourPause" id="tPause">暫停</button><button data-act="tourNext">下一座 ›</button><button data-act="tourMore">看完整介紹</button><button data-act="tourEnd">結束導覽</button></div>
+  <div class="tt"><h3 id="tTitle"></h3><span class="prog" id="tProg"></span></div><p id="tText"></p><p class="t-hippo" id="tHippo" hidden></p>
+  <div class="ctl"><button data-act="tourPrev">‹ 上一座</button><button class="main" data-act="tourPause" id="tPause">暫停</button><button data-act="tourNext">下一座 ›</button><button data-act="tourMore" id="tMore">看完整介紹</button><button data-act="tourEnd">結束導覽</button></div>
   <div class="bar"><i id="tBar"></i></div>
 </div></div>
 
@@ -78,12 +78,13 @@ $('#app').innerHTML = `
   <div class="ctl"><button data-act="strollNext">換一隊</button><button data-act="strollIsland">看這座島</button><button class="main" data-act="strollEnd">結束逛島</button></div>
 </div>
 
-<button class="hintcard card" id="hint" data-act="passport">
+<button class="hintcard card" id="hint" data-act="mission">
   <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span><span class="visit-line" id="visitLine" hidden>累計 <b id="visitTotal">0</b> 人次登島・今日 <b id="visitToday">0</b> 人</span></span>
 </button>
 <p class="credit">Made with <span class="site-credit__heart" aria-label="愛心">❤️</span> by <a class="site-credit__author" href="${SCHOOL.teacherUrl}" target="_blank" rel="noopener noreferrer">阿凱老師</a></p>
 
 <nav class="dock" aria-label="工具列">
+  <button class="cta koi" data-act="mission">小河馬尋寶</button>
   <button class="cta koi" data-act="quiz">閱讀小測驗</button>
   <button class="cta lake" data-act="tour" id="tourBtn">島嶼導覽</button>
   <button class="cta sun" data-act="stroll" id="strollBtn">跟著逛島</button>
@@ -459,15 +460,29 @@ function renderList(q) {
 // ───────── 島嶼導覽 ─────────
 let tourTimer = 0;
 const TOUR_MS = 9000;
+const MISSION_MS = 14000;
+const TOUR_STOPS = ISLANDS.length + 1; // 第一站先說明尋寶任務，後面才逛十二座島
+const tourWait = () => (S.tourIdx ? TOUR_MS : MISSION_MS);
 
 function showTourStop() {
   music.sfx('whoosh');
-  const d = ISLANDS[S.tourIdx];
-  $('#tTitle').textContent = d.name;
-  $('#tProg').textContent = `${S.tourIdx + 1} / ${ISLANDS.length}`;
-  $('#tText').textContent = d.tour;
-  world.focusIsland(d.id);
+  const d = ISLANDS[S.tourIdx - 1];
+  $('#tProg').textContent = `${S.tourIdx + 1} / ${TOUR_STOPS}`;
+  $('#tMore').textContent = d ? '看完整介紹' : '看尋寶任務';
+  $('#tHippo').hidden = !d;
   tourTimer = 0;
+  if (!d) {
+    $('#tTitle').textContent = '小河馬尋寶任務';
+    $('#tText').textContent = '每座島都躲著一隻小河馬！找到 6 隻或 12 隻就能領證書，石門國小的同學帶著證書到校長室，就能領取獎勵。';
+    world.clearFocus();
+    world.setView('home');
+    syncView('home');
+    return;
+  }
+  $('#tTitle').textContent = d.name;
+  $('#tText').textContent = d.tour;
+  $('#tHippo').textContent = S.hippos.has(d.id) ? `這座島的${HIPPOS[d.id].name}，你已經找到了！` : '這座島也躲著一隻小河馬，找找看閃閃發光的地方！';
+  world.focusIsland(d.id);
 }
 
 function startTour() {
@@ -495,9 +510,9 @@ function stopTour(home = false) {
 function tourTick(dt) {
   if (!S.touring || S.tourPaused) return;
   tourTimer += dt;
-  $('#tBar').style.width = `${Math.min(100, (tourTimer / TOUR_MS) * 100)}%`;
-  if (tourTimer > TOUR_MS) {
-    if (S.tourIdx + 1 >= ISLANDS.length) { stopTour(true); toast('導覽結束，繼續自由探索吧'); return; }
+  $('#tBar').style.width = `${Math.min(100, (tourTimer / tourWait()) * 100)}%`;
+  if (tourTimer > tourWait()) {
+    if (S.tourIdx + 1 >= TOUR_STOPS) { stopTour(true); showMission(); return; }
     S.tourIdx += 1;
     showTourStop();
   }
@@ -516,6 +531,22 @@ function showQuiz(i = 0, tally = {}) {
   openModal(`${dialogHead('閱讀小測驗')}<div class="dialog-body"><p class="quiz-progress">第 ${i + 1} 題 / 共 ${QUIZ.length} 題</p><p class="quiz-q">${esc(q.q)}</p>
     ${q.a.map(([t, k]) => `<button class="quiz-opt" data-quiz="${i}" data-k="${k}">${esc(t)}</button>`).join('')}</div>`);
   $('#dialog').dataset.tally = JSON.stringify(tally);
+}
+
+function showMission() {
+  const n = S.hippos.size;
+  const next = n < 6 ? `再找 ${6 - n} 隻，就能領「尋寶探險家」證書` : n < 12 ? `再找 ${12 - n} 隻，就能領金色的「尋寶小達人」證書` : '全部找到了，快去領證書！';
+  store.set('smes-mission-seen', true);
+  openModal(`${dialogHead('小河馬尋寶任務')}<div class="dialog-body">
+    <p>12 座浮空島上，各躲著一隻小河馬。找到牠們，就能領證書，再到校長室領取獎勵！</p>
+    <ol class="mission">
+      <li><strong>逛島</strong><span>點一座島，或用「島嶼導覽」「跟著逛島」到處走走。</span></li>
+      <li><strong>找小河馬</strong><span>放大畫面，找閃閃發光的地方，點一下小河馬就收集到了。</span></li>
+      <li><strong>領證書</strong><span>找到 6 隻領「尋寶探險家」，12 隻領「尋寶小達人」。到「閱讀護照」選班級、填姓名就能領。</span></li>
+      <li><strong>到校長室領獎勵</strong><span>把證書存起來或印出來，石門國小的同學帶到校長室就能領取獎勵。</span></li>
+    </ol>
+    <p class="mission-now">目前找到 <b>${n}</b> / 12 隻，${next}</p>
+    <div class="btn-row"><button class="cta koi" data-act="modalClose">開始尋寶</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
 }
 
 function showPassport() {
@@ -665,15 +696,20 @@ const actions = {
   dockNext() { slideDock(1); },
   quiz() { showQuiz(); },
   passport() { showPassport(); },
+  mission() { showMission(); },
   log() { showLog(); },
   honors() { showHonors(); },
   watch() { const on = $('#watch').classList.toggle('opened'); if (!S.island) $('#hint').hidden = on; },
   res() { openIsland('walk', { tab: 2 }); },
   tour() { if (S.touring) stopTour(true); else startTour(); },
   tourPause(el) { S.tourPaused = !S.tourPaused; el.textContent = S.tourPaused ? '繼續' : '暫停'; },
-  tourPrev() { S.tourIdx = (S.tourIdx + ISLANDS.length - 1) % ISLANDS.length; showTourStop(); },
-  tourNext() { S.tourIdx = (S.tourIdx + 1) % ISLANDS.length; showTourStop(); },
-  tourMore() { const id = ISLANDS[S.tourIdx].id; stopTour(); openIsland(id); },
+  tourPrev() { S.tourIdx = (S.tourIdx + TOUR_STOPS - 1) % TOUR_STOPS; showTourStop(); },
+  tourNext() { S.tourIdx = (S.tourIdx + 1) % TOUR_STOPS; showTourStop(); },
+  tourMore() {
+    const d = ISLANDS[S.tourIdx - 1];
+    stopTour(!d);
+    if (d) openIsland(d.id); else showMission();
+  },
   tourEnd() { stopTour(true); },
   stroll() { if (S.walking) stopStroll(true); else startStroll(world.people.guide()); },
   strollNext() { startStroll(world.people.guide()); },
@@ -1014,6 +1050,8 @@ async function boot() {
     world.flyTo(end, tgt, 2.6);
   }
   route();
+  // 第一次來的訪客先看尋寶規則；直接連到某座島的人不打斷
+  if (!store.get('smes-mission-seen', false)) setTimeout(() => { if (!S.island && !S.touring && !S.walking && !$('#modal').classList.contains('open')) showMission(); }, calm ? 600 : 2900);
 }
 
 boot();
