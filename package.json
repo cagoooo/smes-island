@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.12.0",
-  "releaseNotes": "黃昏有專屬配樂了！夕陽時段換上溫暖的吉他曲",
+  "version": "1.13.0",
+  "releaseNotes": "共用平板更方便！新增明顯的「換下一位」按鈕，換人時也會自動提醒",
   "type": "module",
   "scripts": {
     "dev": "vite",

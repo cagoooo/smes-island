@@ -89,6 +89,7 @@ $('#app').innerHTML = `
   <button class="cta lake" data-act="tour" id="tourBtn">島嶼導覽</button>
   <button class="cta sun" data-act="stroll" id="strollBtn">跟著逛島</button>
   <button class="cta moss" data-act="passport">閱讀護照</button>
+  <button class="cta koi" id="nextBtn" data-act="certReset" hidden>換下一位</button>
   <div class="seg" role="group" aria-label="檢視模式">
     <button class="on" data-view="home">全景</button><button data-view="top">鳥瞰</button><button data-view="list">清單</button>
   </div>
@@ -155,13 +156,20 @@ function openModal(html, wide = false) {
   const d = $('#dialog');
   d.className = `dialog${wide ? ' wide' : ''}`;
   d.innerHTML = html;
+  delete d.dataset.lock;
   $('#modal').classList.add('open');
   $('.round[data-act="modalClose"]', d)?.focus();
 }
 const closeModal = () => $('#modal').classList.remove('open');
 const dialogHead = (title) => `<div class="dialog-head"><h2>${esc(title)}</h2><button class="round" data-act="modalClose" aria-label="關閉">×</button></div>`;
 
+// 共用平板要交給下一位時的清除入口，寫在一起讓文字和按鈕一致
+const hasProgress = () => S.hippos.size > 0 || S.stamps.size > 0 || !!certInfo.get();
+const handover = (text) => `<div class="handover"><p>${text}</p><button class="cta koi" data-act="certReset">換下一位同學</button></div>`;
+const paintNext = () => { $('#nextBtn').hidden = !hasProgress(); };
+
 function setHint() {
+  paintNext();
   $('#hintText').textContent = S.hippos.size === 12 ? '12 隻小河馬全部找到了，快去領證書！' : `找到 6 隻、12 隻都能領證書，已找到 ${S.hippos.size} 隻`;
 }
 
@@ -329,6 +337,7 @@ function openIsland(id, { tab = 0, fly = true, push = true, keepSheet = false } 
     music.sfx('stamp');
     S.stamps.add(id);
     store.set('smes-stamps', [...S.stamps]);
+    paintNext();
     if (S.stamps.size === order.length) toast('恭喜！閱讀護照十二枚印章全部集滿了');
     else toast(`閱讀護照蓋章：${d.name}（${S.stamps.size} / 12）`);
   }
@@ -546,6 +555,7 @@ function showMission() {
       <li><strong>到校長室領獎勵</strong><span>把證書存起來或印出來，石門國小的同學帶到校長室就能領取獎勵。</span></li>
     </ol>
     <p class="mission-now">目前找到 <b>${n}</b> / 12 隻，${next}</p>
+    ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <div class="btn-row"><button class="cta koi" data-act="modalClose">開始尋寶</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
 }
 
@@ -556,11 +566,12 @@ function showPassport() {
     <h3 class="hippo-title">小河馬證書</h3>
     <p>找到 6 隻、12 隻各可領一張證書，石門國小的同學帶著證書到校長室，就能領取獎勵！</p>
     ${certTiers(S.hippos.size)}
+    ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <h3 class="hippo-title">小河馬圖鑑</h3>
     ${hippoGrid(S.hippos)}
     ${S.hippos.size === 12 ? '<div class="btn-row"><button class="cta koi" data-act="finaleAgain">再慶祝一次</button></div>' : ''}
     <p class="note" style="margin-top:10px">蓋章和小河馬紀錄只存在你這台裝置的瀏覽器裡，領證書時班級和姓名會傳給學校。</p>
-    ${S.hippos.size || certInfo.get() ? '<p class="note"><button class="text-btn" data-act="certReset">共用平板？換下一位小朋友</button></p>' : ''}</div>`);
+    </div>`);
 }
 
 // 第一次領證書才填姓名，之後兩張證書都用同一個名字，避免共用平板上直接改名再領一張
@@ -576,6 +587,25 @@ function showCertForm(level) {
   $('#certGrade').focus();
 }
 
+// 學生常忘了按清除就還平板：超過一段下課時間沒人操作，下次碰畫面時先問是不是換人了
+const HANDOVER_MS = 15 * 60 * 1000;
+
+function showHandover() {
+  closeFinale();
+  actions.lbClose();
+  openModal(`${dialogHead('這台平板有上一位的紀錄')}<div class="dialog-body">
+    <p>這裡已經找到 <b>${S.hippos.size}</b> 隻小河馬、蓋了 <b>${S.stamps.size}</b> 枚章${certInfo.get() ? '，也領過證書了' : ''}。</p>
+    <p>如果你是新來的同學，請按「我是新同學」重新開始，才能自己尋寶哦！</p>
+    <div class="btn-row"><button class="cta koi" data-act="certResetGo">我是新同學，重新開始</button><button class="cta lake" data-act="modalClose">是我的，繼續尋寶</button></div></div>`);
+  $('#dialog').dataset.lock = '1'; // 叫出提醒的那一下點擊落在背景上，不能順手把提醒關掉
+}
+
+function checkHandover() {
+  const last = store.get('smes-last-active', 0);
+  store.set('smes-last-active', Date.now());
+  if (last && Date.now() - last > HANDOVER_MS && hasProgress()) showHandover();
+}
+
 let certUrl = '';
 
 async function showCert(level) {
@@ -586,7 +616,8 @@ async function showCert(level) {
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
     <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
-    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${level}隻.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button></div></div>`, true);
+    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${level}隻.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button></div>
+    ${handover('要把平板交給下一位同學嗎？先把證書存好或印好，再按這裡。')}</div>`, true);
   try {
     const blob = await drawCert(level, fresh);
     if (certUrl) URL.revokeObjectURL(certUrl);
@@ -756,17 +787,21 @@ const actions = {
   },
   certIssue(t) {
     issue(+t.dataset.level, t.dataset.cls, t.dataset.name);
+    paintNext();
     showCert(+t.dataset.level);
   },
   certPrint() { if (certUrl) printCert(certUrl); },
   certReset() {
-    openModal(`${dialogHead('換下一位小朋友')}<div class="dialog-body">
-      <p>這台裝置的小河馬紀錄和證書都會清除，下一位小朋友要重新尋找。已經存下來或印出來的證書不受影響。</p>
+    openModal(`${dialogHead('換下一位同學')}<div class="dialog-body">
+      <p>這台裝置的小河馬、蓋章和證書紀錄都會清除，下一位同學要重新尋找。已經存下來或印出來的證書不受影響。</p>
       <div class="btn-row"><button class="cta koi" data-act="certResetGo">確定清除</button><button class="cta lake" data-act="modalClose">先不要</button></div></div>`);
   },
   async certResetGo() {
     await Promise.race([sendCerts(), new Promise((ok) => { setTimeout(ok, 3000); })]);
     store.set('smes-hippos', []);
+    store.set('smes-stamps', []);
+    store.set('smes-mission-seen', false);
+    store.set('smes-last-active', 0);
     certInfo.clear();
     location.reload();
   },
@@ -840,7 +875,7 @@ window.addEventListener('pointerup', () => { if (lbDrag) lbDrag.on = false; });
 
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button,a');
-  if (!t) { if (e.target.id === 'modal') closeModal(); if (e.target.id === 'lb') actions.lbClose(); return; }
+  if (!t) { if (e.target.id === 'modal' && !$('#dialog').dataset.lock) closeModal(); if (e.target.id === 'lb') actions.lbClose(); return; }
   const d = t.dataset;
   if (d.tab === undefined && d.quiz === undefined) music.sfx('tap');
   if (d.act !== undefined && d.act !== '' && actions[d.act]) { actions[d.act](t); return; }
@@ -1054,6 +1089,10 @@ async function boot() {
     world.flyTo(end, tgt, 2.6);
   }
   route();
+  checkHandover();
+  window.addEventListener('pointerdown', checkHandover, true);
+  window.addEventListener('keydown', checkHandover, true);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkHandover(); });
   // 第一次來的訪客先看尋寶規則；直接連到某座島的人不打斷
   if (!store.get('smes-mission-seen', false)) setTimeout(() => { if (!S.island && !S.touring && !S.walking && !$('#modal').classList.contains('open')) showMission(); }, calm ? 600 : 2900);
 }

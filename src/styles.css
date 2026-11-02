@@ -535,7 +535,10 @@ body.listing .walkbar { display: none; }
 .cert-view { display: grid; place-items: center; min-height: 200px; }
 .cert-view img { width: 100%; height: auto; border-radius: 6px; box-shadow: var(--shadow-rest); }
 .cert-tip { margin-top: 10px; text-align: center; font-size: var(--fs-sm); color: var(--ink-2); }
-.text-btn { padding: 4px 0; color: var(--ink-2); font-size: var(--fs-sm); text-decoration: underline; }
+.cta[hidden] { display: none; }
+.handover { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 14px; background: color-mix(in srgb, var(--koi) 12%, #fff); border: 2px solid var(--koi); border-radius: 12px; }
+.handover p { margin: 0; font-weight: 700; line-height: 1.5; }
+.handover .cta { flex: none; }
 #certPrint { display: none; }
 @media print {
   @page { size: A4 landscape; margin: 0; }
@@ -552,3 +555,7 @@ body.listing .walkbar { display: none; }
 .mission span { display: block; font-size: var(--fs-sm); color: var(--ink-2); }
 .mission-now { margin-top: 12px; text-align: center; font-weight: 700; }
 .mission-now b { color: var(--koi); font-size: var(--fs-lg); }
+@media (max-width: 480px) {
+  .handover { flex-direction: column; align-items: stretch; text-align: center; }
+  .handover .cta { justify-content: center; }
+}
