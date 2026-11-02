@@ -102,7 +102,8 @@ export class Sky {
   }
 
   // hour: 0–24（台灣時間），cloud: 0–1 陰天程度
-  update({ hour, sunrise, sunset, cloud }) {
+  update({ hour, sunrise, sunset, cloud, storm = false }) {
+    const dim = storm ? 0.4 : 1; // 颱風天壓暗整片天空，才看得出雲海下的颱風雲系
     const up = hour > sunrise - 1 && hour < sunset + 1;
     const dayLen = sunset - sunrise;
     const p = (hour - sunrise) / dayLen;
@@ -112,7 +113,7 @@ export class Sky {
     const night = 1 - smooth(-0.2, 0.08, up ? elev : -0.4);
     const pick = (key) => {
       const col = new THREE.Color().copy(ck.night[key]).lerp(ck.day[key], dayT).lerp(ck.dawn[key], golden * 0.86);
-      return col.lerp(ck.storm[key], cloud * 0.8 * (1 - night * 0.7));
+      return col.lerp(ck.storm[key], cloud * 0.8 * (1 - night * 0.7)).multiplyScalar(dim);
     };
     const num = (key) => lerp(lerp(lerp(K.night[key], K.day[key], dayT), K.dawn[key], golden * 0.86), K.storm[key], cloud * 0.8 * (1 - night * 0.7));
     this.uniforms.uTop.value.copy(pick('top'));
@@ -134,10 +135,10 @@ export class Sky {
       : new THREE.Vector3(sunDir.x * 0.9, Math.max(sunDir.y, 0.46), 0.48);
     this.dir.position.copy(l.normalize().multiplyScalar(230));
     this.dir.color.copy(pick('sun'));
-    this.dir.intensity = num('dir');
+    this.dir.intensity = num('dir') * (storm ? 0.8 : 1);
     this.hemi.color.copy(pick('hemiS'));
     this.hemi.groundColor.copy(pick('hemiG'));
-    this.hemi.intensity = num('hemi');
+    this.hemi.intensity = num('hemi') * (storm ? 1.5 : 1);
     this.scene.fog.color.copy(this.uniforms.uHor.value);
     this.cloudCol.copy(pick('cloud'));
     this.underCol.copy(pick('under'));

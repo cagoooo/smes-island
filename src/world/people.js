@@ -96,7 +96,15 @@ export class People {
     this.crews.push(c);
   }
 
+  // 颱風天大家都待在室內，島上看不到人
+  setHidden(v) {
+    this.hidden = v;
+    for (const m of this.meshes) m.visible = !v;
+    this.glow.visible = !v;
+  }
+
   buildMeshes(scene) {
+    this.meshes = [];
     const r = this.r;
     const geo = (fn) => { const k = new Kit(77); fn(k); return k.build().children[0].geometry; };
     const inst = (g, count, shadow, mat) => {
@@ -105,6 +113,7 @@ export class People {
       m.castShadow = shadow;
       for (let i = 0; i < m.count; i++) m.setMatrixAt(i, ZERO);
       scene.add(m);
+      this.meshes.push(m);
       return m;
     };
     const n = this.list.length;

@@ -22,16 +22,32 @@ async function json(url, ms = 12000) {
 }
 
 export async function fetchWeather() {
-  const u = `https://api.open-meteo.com/v1/forecast?latitude=${SCHOOL.lat}&longitude=${SCHOOL.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Asia%2FTaipei&forecast_days=1`;
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${SCHOOL.lat}&longitude=${SCHOOL.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Asia%2FTaipei&forecast_days=1`;
   const d = await json(u);
   const c = d.current, code = c.weather_code;
   const [label, icon, cloud] = WMO[code] || ['多雲', '⛅', 0.3];
   return {
-    label, icon, cloud, rain: RAIN[code] || 0, thunder: code >= 95, wind: c.wind_speed_10m,
+    label, icon, cloud, rain: RAIN[code] || 0, thunder: code >= 95, wind: c.wind_speed_10m, gust: c.wind_gusts_10m,
     temp: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature), humidity: c.relative_humidity_2m,
     max: Math.round(d.daily.temperature_2m_max[0]), min: Math.round(d.daily.temperature_2m_min[0]), pop: d.daily.precipitation_probability_max[0],
     sunrise: hours(d.daily.sunrise[0]), sunset: hours(d.daily.sunset[0]),
   };
+}
+
+// 人事總處的停班停課資料由 GitHub Actions 寫進 live-data；太舊就不採用，免得颱風過了還在警戒
+const ALERT_MAX_AGE = 12 * 3600 * 1000;
+export async function fetchAlert() {
+  const d = await json('https://raw.githubusercontent.com/cagoooo/smes-island/live-data/alert.json');
+  return Date.now() - new Date(d.updated).getTime() < ALERT_MAX_AGE ? d : null;
+}
+
+// 陣風達 8 級（62 km/h）又在下雨，或桃園市公告停班停課，就進入颱風應變
+const STORM_GUST = 62;
+const STORM_RAIN = 0.5;
+export function stormState(w, alert) {
+  if (alert?.closed || alert?.tomorrow) return { kind: alert.typhoon ? 'typhoon' : 'closure', info: alert.info, gust: w?.gust };
+  if (w && w.gust >= STORM_GUST && w.rain >= STORM_RAIN) return { kind: 'gale', gust: w.gust };
+  return null;
 }
 
 export async function fetchAir() {

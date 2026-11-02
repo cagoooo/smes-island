@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/fetch-news.mjs /tmp/news.json
+      - run: node scripts/fetch-alert.mjs /tmp/alert.json
+        continue-on-error: true
       - name: 寫入 live-data 分支
         run: |
           git config user.name "github-actions[bot]"
@@ -29,12 +31,24 @@ jobs:
             git checkout --orphan live-data
             git rm -rf . >/dev/null
           fi
-          # 只比對公告內容，時間戳記改變不算更新
-          if [ -f news.json ] && [ "$(node -p "JSON.stringify(require('./news.json').items)")" = "$(node -p "JSON.stringify(require('/tmp/news.json').items)")" ]; then
+          # 只比對內容，時間戳記改變不算更新；公告停班停課期間每次都寫入，讓網站知道資料還是新的
+          changed=0
+          same() { [ -f "$2" ] && [ "$(node -p "JSON.stringify(require('./$2').$3)")" = "$(node -p "JSON.stringify(require('$1').$3)")" ]; }
+          if ! same /tmp/news.json news.json items; then
+            cp /tmp/news.json news.json
+            git add news.json
+            changed=1
+          fi
+          if [ -f /tmp/alert.json ]; then
+            if ! same /tmp/alert.json alert.json info || [ "$(node -p "require('/tmp/alert.json').info ? 1 : 0")" = 1 ]; then
+              cp /tmp/alert.json alert.json
+              git add alert.json
+              changed=1
+            fi
+          fi
+          if [ "$changed" = 0 ]; then
             echo "公告沒有變化"
             exit 0
           fi
-          cp /tmp/news.json news.json
-          git add news.json
-          git commit -m "chore: 同步校園公告"
+          git commit -m "chore: 同步校園公告與停班停課資訊"
           git push origin live-data

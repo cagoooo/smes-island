@@ -12,6 +12,7 @@ const SCORE = {
   day: { bgm: 'bgm-day', amb: 'amb-birds' },
   cloudy: { bgm: 'bgm-cloudy', amb: null },
   dusk: { bgm: 'bgm-dusk', amb: 'amb-night' },
+  storm: { bgm: 'bgm-rain', amb: 'amb-storm' },
   rain: { bgm: 'bgm-rain', amb: 'amb-rain' },
   night: { bgm: 'bgm-night', amb: 'amb-night' },
 };
@@ -137,8 +138,8 @@ class Music {
     this.route(this.amb, score.amb, AMBIENCE);
   }
 
-  setMood({ night, dusk, rain, cloud, thunder }) {
-    const mood = rain ? 'rain' : dusk ? 'dusk' : night ? 'night' : cloud ? 'cloudy' : 'day';
+  setMood({ storm, night, dusk, rain, cloud, thunder }) {
+    const mood = storm ? 'storm' : rain ? 'rain' : dusk ? 'dusk' : night ? 'night' : cloud ? 'cloudy' : 'day';
     this.thunder = !!thunder;
     if (this.thunder && !this.thunderTimer) this.roll();
     if (mood === this.mood) return;

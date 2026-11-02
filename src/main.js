@@ -10,7 +10,7 @@ import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hi
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
-import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
+import { fetchWeather, fetchAlert, stormState, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
 const VERSION = `v${__APP_VERSION__}`;
 const $ = (s, r = document) => r.querySelector(s);
@@ -78,6 +78,7 @@ $('#app').innerHTML = `
   <div class="ctl"><button data-act="strollNext">換一隊</button><button data-act="strollIsland">看這座島</button><button class="main" data-act="strollEnd">結束逛島</button></div>
 </div>
 
+<button class="storm-chip" id="stormChip" data-act="storm" hidden><b id="stormTitle"></b><span>點我看防颱小叮嚀</span></button>
 <button class="hintcard card" id="hint" data-act="mission">
   <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span><span class="visit-line" id="visitLine" hidden>累計 <b id="visitTotal">0</b> 人次登島・今日 <b id="visitToday">0</b> 人</span></span>
 </button>
@@ -542,6 +543,40 @@ function showQuiz(i = 0, tally = {}) {
   $('#dialog').dataset.tally = JSON.stringify(tally);
 }
 
+const STORM_TITLE = { typhoon: '颱風來襲中', closure: '桃園市停班停課', gale: '強風豪雨警戒', preview: '颱風模式預覽' };
+const liveStorm = () => (S.weather ? stormState(S.weather, S.alert) : null);
+
+// 依目前狀態切換颱風場景與提示；預覽時不看真實資料
+function paintStorm() {
+  const st = S.time === 'typhoon' ? { kind: 'preview' } : S.time === 'live' ? liveStorm() : null;
+  $('#stormChip').hidden = !st;
+  if (st) $('#stormTitle').textContent = `🌀 ${STORM_TITLE[st.kind]}`;
+  if (S.time === 'live' && S.weather) world?.setWeather({ storm: !!st });
+  if (st && S.walking) { stopStroll(true); toast('風雨太大，大家都進屋了，等天氣好再來逛島吧'); }
+}
+
+function showStorm() {
+  const st = S.time === 'typhoon' ? { kind: 'preview' } : liveStorm();
+  if (!st) return;
+  const now = {
+    preview: '這是預覽畫面，不是真的有颱風。',
+    gale: `學校附近陣風每小時約 ${Math.round(st.gust)} 公里，正在下雨，外出要小心。`,
+    typhoon: `桃園市：${st.info}`,
+    closure: `桃園市：${st.info}`,
+  }[st.kind];
+  openModal(`${dialogHead('防颱小叮嚀')}<div class="dialog-body">
+    <p class="storm-now">${esc(now)}</p>
+    <ul class="storm-tips">
+      <li>待在室內，不要到河邊、水庫或山坡看風雨</li>
+      <li>遠離窗戶、招牌和大樹，小心掉落物</li>
+      <li>準備手電筒和飲用水，幫家人一起檢查門窗</li>
+      <li>有沒有停班停課，以官方公告為準，不要聽信傳言</li>
+      <li>待在家的時間，正好讀一本喜歡的書</li>
+    </ul>
+    <div class="btn-row"><a class="cta lake" href="https://www.cwa.gov.tw/V8/C/P/Typhoon/TY_NEWS.html" target="_blank" rel="noopener">氣象署颱風消息</a><a class="cta moss" href="https://www.dgpa.gov.tw/typh/daily/nds.html" target="_blank" rel="noopener">停班停課查詢</a></div>
+    <p class="note" style="margin-top:10px">風雨資料來自 Open-Meteo，是依學校位置估算；停班停課資料來自行政院人事行政總處，更新可能有延遲，請以官方公告為準。</p></div>`);
+}
+
 function showMission() {
   const n = S.hippos.size;
   const next = n < 6 ? `再找 ${6 - n} 隻，就能領「尋寶探險家」證書` : n < 12 ? `再找 ${12 - n} 隻，就能領金色的「尋寶小達人」證書` : '全部找到了，快去領證書！';
@@ -702,9 +737,11 @@ async function loadLive() {
       S.weather = w;
       paintWeather();
       world?.setSun({ sunrise: w.sunrise, sunset: w.sunset });
-      if (S.time === 'live') world?.setWeather({ cloud: w.cloud, rain: w.rain, wind: w.wind, thunder: w.thunder });
+      if (S.time === 'live') world?.setWeather({ cloud: w.cloud, rain: w.rain, wind: w.wind, thunder: w.thunder, storm: !!liveStorm() });
+      paintStorm();
     }, () => { if (!S.weather) $('#wx').innerHTML = '<i>⛅</i><div><strong>天氣暫時無法取得</strong><span>龍潭石門</span></div>'; }),
     safe(fetchAir, (a) => { S.air = a; paintWeather(); }),
+    safe(fetchAlert, (a) => { S.alert = a; paintStorm(); }),
     safe(fetchReservoir, (r) => { S.res = r; paintReservoir(); }, () => { S.resFail = true; paintReservoir(); }),
     safe(fetchNews, (d) => { S.news = d.items || []; if (!S.news.length) $('#newsTicker').innerHTML = '<span class="tick"><span>公告暫時無法載入</span></span>'; }),
   ]);
@@ -742,7 +779,12 @@ const actions = {
     if (d) openIsland(d.id); else showMission();
   },
   tourEnd() { stopTour(true); },
-  stroll() { if (S.walking) stopStroll(true); else startStroll(world.people.guide()); },
+  stroll() {
+    if (S.walking) stopStroll(true);
+    else if (world.env.storm) toast('風雨太大，大家都進屋了，等天氣好再來逛島吧');
+    else startStroll(world.people.guide());
+  },
+  storm() { showStorm(); },
   strollNext() { startStroll(world.people.guide()); },
   strollIsland() { openIsland(world.people.followed.here); },
   strollEnd() { stopStroll(true); },
@@ -753,15 +795,18 @@ const actions = {
   arcs(el) { S.arcs = !S.arcs; el.classList.toggle('on', S.arcs); world?.showArcs(S.arcs); if (S.arcs) showLinksInfo(); },
   pause(el) { S.paused = !S.paused; el.textContent = S.paused ? '播放' : '暫停'; world?.setPaused(S.paused); },
   time(el) {
-    const seq = [['live', '即時'], ['day', '白天'], ['cloudy', '陰天'], ['rain', '雨天'], ['dusk', '黃昏'], ['night', '夜晚']];
+    const seq = [['live', '即時'], ['day', '白天'], ['cloudy', '陰天'], ['rain', '雨天'], ['typhoon', '颱風'], ['dusk', '黃昏'], ['night', '夜晚']];
     const i = (seq.findIndex((s) => s[0] === S.time) + 1) % seq.length;
     S.time = seq[i][0];
     el.textContent = seq[i][1];
-    world?.setTimeMode(S.time === 'rain' || S.time === 'cloudy' ? 'day' : S.time);
-    if (S.time === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8 });
-    else if (S.time === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0 });
-    else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0 });
-    else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain });
+    world?.setTimeMode(['rain', 'cloudy', 'typhoon'].includes(S.time) ? 'day' : S.time);
+    if (S.time === 'typhoon') world?.setWeather({ storm: true });
+    else if (S.time === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8, storm: false });
+    else if (S.time === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0, storm: false });
+    else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0, storm: false });
+    else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain, storm: !!liveStorm() });
+    paintStorm();
+    if (S.time === 'typhoon') toast('颱風來了！雲海下的颱風正在旋轉，大家都躲進屋裡了');
     if (S.time === 'rain') toast('下雨了！孩子們撐傘踩水窪，魚兒開心得跳出水面');
     if (S.time === 'night') toast('夜深了，留下來的孩子拿著手電筒看星星、圍著營火聽故事');
   },
@@ -1057,7 +1102,7 @@ async function boot() {
       },
       onEnv: (env) => {
         $('#schoolState').textContent = env.schoolState || '';
-        music.setMood({ night: env.night > 0.5, dusk: env.dusk, rain: env.rain > 0.15, cloud: env.cloud >= 0.6, thunder: env.thunder });
+        music.setMood({ storm: env.storm, night: env.night > 0.5, dusk: env.dusk, rain: env.rain > 0.15, cloud: env.cloud >= 0.6, thunder: env.thunder });
       },
       onSplash: () => music.sfx('splash'),
       onQuality: () => $('#tiltBtn').classList.remove('on'),

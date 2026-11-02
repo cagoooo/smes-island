@@ -11,6 +11,7 @@ import { buildIsland } from './islands.js';
 import { waterfall } from './base.js';
 import { Sky } from './sky.js';
 import { Clouds } from './clouds.js';
+import { Storm } from './storm.js';
 import { Life } from './life.js';
 import { People, buildNav } from './people.js';
 import { HippoFx } from './hippo-fx.js';
@@ -46,9 +47,11 @@ export class World {
     this.sky.setShadowSize(this.tier === 'high' ? 2048 : 1024);
     this.clouds = new Clouds(this.scene, this.tier === 'low' ? 0.55 : 1);
     this.rain = new Rain(this.scene);
+    this.storm = new Storm(this.scene, matchMedia('(prefers-reduced-motion: reduce)').matches);
+    this.exposure = 1;
     this.env = { night: 0, wind: 8, rain: 0, kidsVisible: 'all' };
     this.timeMode = 'live';
-    this.weather = { cloud: 0.15, rain: 0, wind: 8, thunder: false };
+    this.weather = { cloud: 0.15, rain: 0, wind: 8, thunder: false, storm: false };
     this.sun = { sunrise: 6.1, sunset: 17.4 };
 
     this.defs = Object.fromEntries(ISLANDS.map((d) => [d.id, d]));
@@ -318,6 +321,7 @@ export class World {
   }
 
   personAt() {
+    if (this.env.storm) return null;
     return this.people.pickAt(this.pointer.x, this.pointer.y, this.camera, this.height);
   }
 
@@ -382,23 +386,27 @@ export class World {
     const live = now.getHours() + now.getMinutes() / 60;
     const { sunrise, sunset } = this.sun;
     const hour = { live, day: 11, dusk: sunset - 0.1, night: 22 }[this.timeMode] ?? live;
-    this.sky.update({ hour, sunrise, sunset, cloud: this.weather.cloud });
+    const storm = !!this.weather.storm;
+    this.sky.update({ hour, sunrise, sunset, cloud: storm ? 1 : this.weather.cloud, storm });
     this.env.night = this.sky.env.night;
     this.env.dusk = hour >= sunset - 1 && hour <= sunset + 0.5; // 日落前一小時到日落後半小時
-    this.renderer.toneMappingExposure = 1 + this.env.night * 0.32;
+    this.exposure = 1 + this.env.night * 0.32;
     fallMat.uniforms.uTint.value.copy(this.sky.cloudCol);
     this.env.wind = this.weather.wind;
-    this.env.rain = this.weather.rain;
-    this.env.cloud = this.weather.cloud;
-    this.env.thunder = this.weather.thunder;
-    this.rain.set(this.weather.rain);
-    shared.uWind.value = 0.6 + Math.min(this.weather.wind, 30) / 18;
+    this.env.storm = storm;
+    this.env.rain = storm ? 1 : this.weather.rain;
+    this.env.cloud = storm ? 1 : this.weather.cloud;
+    this.env.thunder = storm || this.weather.thunder;
+    this.rain.set(storm ? 1.5 : this.weather.rain, storm);
+    shared.uWind.value = storm ? 3.8 : 0.6 + Math.min(this.weather.wind, 30) / 18;
+    this.people?.setHidden(storm);
     const weekday = ![0, 6].includes(now.getDay());
     const schoolHours = hour >= 7.5 && hour <= 16.5;
     const previewDay = this.timeMode === 'day';
     this.env.kidsVisible = this.env.night > 0.5 ? 'none' : (weekday && schoolHours) || previewDay ? 'all' : 'few';
     const wet = this.weather.rain > 0.15;
     this.env.schoolState = this.env.night > 0.5 ? (wet ? '夜雨中，還有幾個人撐著傘拿手電筒回家' : '校園休息中，還有幾個人拿手電筒看星星') : wet ? '下雨了，孩子們踩水窪，魚兒跳出水面' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
+    if (storm) this.env.schoolState = '風強雨大，大家都躲進屋裡，只剩風雨和燈塔還在外面';
     this.hooks.onEnv?.(this.env, hour);
   }
 
@@ -438,9 +446,12 @@ export class World {
       this.camera.setViewOffset(this.width, this.height, ins.x, ins.y, this.width, this.height);
     }
 
+    this.storm.update(t, this.paused ? 0 : dt, this.env.storm);
+    const gale = this.storm.level;
+    this.renderer.toneMappingExposure = this.exposure * (1 - gale * 0.1) + this.storm.flash;
     for (const id in this.islands) {
       const is = this.islands[id];
-      is.group.position.y = is.base + Math.sin(t * 0.42 + is.phase) * 0.16;
+      is.group.position.y = is.base + Math.sin(t * (0.42 + gale * 0.9) + is.phase) * (0.16 + gale * 0.5);
       is.rocks.position.y = Math.sin(t * 0.6 + is.phase) * 0.36;
       is.rocks.rotation.y = t * 0.012;
       if (is.ring) {
@@ -469,7 +480,7 @@ export class World {
       this.controls.target.x += dx; this.controls.target.y += dy; this.controls.target.z += dz;
       this.camera.position.x += dx; this.camera.position.y += dy; this.camera.position.z += dz;
     }
-    this.clouds.update(this.paused ? 0 : dt, this.sky);
+    this.clouds.update((this.paused ? 0 : dt) * (1 + gale * 4), this.sky);
     if (this.arcs) this.arcs.mat.uniforms.uA.value += ((this.arcTarget || 0) - this.arcs.mat.uniforms.uA.value) * Math.min(1, dt * 5);
 
     if (this.hoverDirty) {

@@ -129,8 +129,8 @@ export class Rain {
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { uTime: shared.uTime, uA: { value: 0 } },
-      vertexShader: `uniform float uTime; void main(){ vec3 p = position; p.y = mod(p.y - uTime * 62. + 30., 120.) - 30.; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.); }`,
+      uniforms: { uTime: shared.uTime, uA: { value: 0 }, uDrift: { value: 0 }, uShear: { value: 0 } },
+      vertexShader: `uniform float uTime; uniform float uDrift; uniform float uShear; void main(){ vec3 p = position; p.y = mod(p.y - uTime * 62. + 30., 120.) - 30.; p.x = mod(p.x + uTime * uDrift + 150., 300.) - 150. + position.y * uShear; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.); }`,
       fragmentShader: `uniform float uA; void main(){ gl_FragColor = vec4(.82, .9, 1., .36 * uA); }`,
     });
     this.mesh = new THREE.LineSegments(g, this.mat);
@@ -139,8 +139,10 @@ export class Rain {
     scene.add(this.mesh);
   }
 
-  set(level) {
+  set(level, gale = false) {
     this.mat.uniforms.uA.value = level;
+    this.mat.uniforms.uDrift.value = gale ? 70 : 0; // 颱風天雨是橫著打的
+    this.mat.uniforms.uShear.value = gale ? -0.9 : 0;
     this.mesh.visible = level > 0.02;
   }
 }

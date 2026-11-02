@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.13.0",
-  "releaseNotes": "共用平板更方便！新增明顯的「換下一位」按鈕，換人時也會自動提醒",
+  "version": "1.14.0",
+  "releaseNotes": "颱風模式登場！颱風天群島會變天，還有防颱小叮嚀，工具列切到「颱風」就能預覽",
   "type": "module",
   "scripts": {
     "dev": "vite",
