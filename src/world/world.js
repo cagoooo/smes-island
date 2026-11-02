@@ -382,7 +382,7 @@ export class World {
     const previewDay = this.timeMode === 'day';
     this.env.kidsVisible = this.env.night > 0.5 ? 'none' : (weekday && schoolHours) || previewDay ? 'all' : 'few';
     const wet = this.weather.rain > 0.15;
-    this.env.schoolState = this.env.night > 0.5 ? (wet ? '夜雨中，還有幾個人撐著傘提燈回家' : '校園休息中，還有幾個人提著燈籠看星星') : wet ? '下雨了，孩子們撐傘踩水窪' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
+    this.env.schoolState = this.env.night > 0.5 ? (wet ? '夜雨中，還有幾個人撐著傘拿手電筒回家' : '校園休息中，還有幾個人拿手電筒看星星') : wet ? '下雨了，孩子們撐傘踩水窪' : this.env.kidsVisible === 'all' ? '孩子們正在校園裡' : '假日親子共讀時光';
     this.hooks.onEnv?.(this.env, hour);
   }
 

@@ -1,4 +1,4 @@
-// 島上的老師與學生：分隊走路、過吊橋、跳踏石，抵達後上課、傳球、玩鬼抓人或坐下看書；下雨撐傘踩水窪，入夜提燈觀星
+// 島上的老師與學生：分隊走路、過吊橋、跳踏石，抵達後上課、傳球、玩鬼抓人或坐下看書；下雨撐傘踩水窪，入夜拿手電筒觀星
 import * as THREE from 'three';
 import { Kit, makeRng } from './kit.js';
 import { NavGrid, Trail } from './nav.js';
@@ -88,7 +88,7 @@ export class People {
         idx: this.list.length, kind, crew: c, slot: i, body: BODY[kind], s: kind === 'teacher' ? 1.22 : 0.92 + r() * 0.18,
         x: wx, y: wy, z: wz, tx: wx, ty: wy, tz: wz, lx, lz, yaw: r() * 6.28, spd: 0, phase: r() * 6.28, ph: r() * 6.28,
         aL: 0, aR: 0, lL: 0, lR: 0, lift: 0, lean: 0, mode: 'idle', goal: 'idle', face: null, book: false, vis: 1, hidden: false,
-        umb: 0, lamp: 0, look: 0, bare: kind === 'student' && r() < 0.2, lit: kind === 'teacher' || r() < 0.65,
+        umb: 0, lamp: 0, look: 0, aim: 1.95, sweep: 0, reach: 1, bare: kind === 'student' && r() < 0.2, lit: kind === 'teacher' || r() < 0.8,
       };
       c.members.push(p);
       this.list.push(p);
@@ -149,11 +149,14 @@ export class People {
       k.cone(0.74, 0.3, '#ffffff', 0, 0.62, 0, { seg: 8, ...plain });
       k.ball(0.035, '#ffffff', 0, 0.93, 0, plain);
     }), n, true);
-    this.lantern = inst(geo((k) => {
-      k.box(0.11, 0.15, 0.11, '#ffd873', 0, -0.08, 0, plain);
-      k.box(0.14, 0.03, 0.14, '#6b4a2c', 0, 0.07, 0, plain);
-      k.cyl(0.012, 0.1, '#6b4a2c', 0, 0.1, 0, { seg: 4, ...plain });
+    this.torch = inst(geo((k) => {
+      k.cyl(0.036, 0.2, '#3b3f46', 0, 0, 0, { seg: 6, ...plain });
+      k.cyl(0.058, 0.07, '#fff2c4', 0, 0.2, 0, { seg: 6, ...plain });
     }), n, false, bright());
+    const light = { color: '#ffe9a8', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false };
+    this.beam = inst(new THREE.ConeGeometry(0.8, 3.4, 12, 1, true).rotateX(Math.PI).translate(0, 1.7, 0), n, false,
+      new THREE.MeshBasicMaterial({ ...light, alphaMap: beamTexture(), opacity: 0.34, side: THREE.DoubleSide }));
+    this.spot = inst(new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2), n, false, new THREE.MeshBasicMaterial({ ...light, opacity: 0.3 }));
     this.logs = inst(geo((k) => {
       k.box(0.62, 0.09, 0.12, '#5a3a22', 0, 0, 0, plain);
       k.box(0.12, 0.09, 0.62, '#4a3019', 0, 0.06, 0, plain);
@@ -164,7 +167,7 @@ export class People {
     }), nc, false, bright());
     this.puddle = inst(new THREE.CircleGeometry(1, 18).rotateX(-Math.PI / 2), nc, false, new THREE.MeshBasicMaterial({ color: '#a9d6ee', transparent: true, opacity: 0.62, depthWrite: false }));
     this.ring = inst(new THREE.RingGeometry(0.91, 1, 18).rotateX(-Math.PI / 2), n, false, new THREE.MeshBasicMaterial({ color: '#f2fbff', transparent: true, opacity: 0.6, depthWrite: false }));
-    this.glowAt = new Float32Array((n + nc) * 3).fill(HIDE);
+    this.glowAt = new Float32Array(nc * 3).fill(HIDE);
     const shape = new THREE.BufferGeometry();
     shape.setAttribute('position', new THREE.BufferAttribute(this.glowAt, 3));
     this.glow = new THREE.Points(shape, new THREE.PointsMaterial({ size: 5, map: glowTexture(), color: '#ffc06a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
@@ -327,13 +330,13 @@ export class People {
       return;
     }
     const day = clr >= 5 ? ['tag', 'ball', 'ball', 'read', 'jump'] : clr >= 4 ? ['ball', 'read', 'jump'] : ['read', 'jump'];
-    const acts = this.wet ? ['puddle', 'puddle', 'huddle', 'catch'] : this.dark ? (clr >= 4 ? ['camp', 'camp', 'stars'] : ['stars']) : day;
+    const acts = this.wet ? ['puddle', 'puddle', 'huddle', 'catch'] : this.dark ? (clr >= 4 ? ['camp', 'flash', 'flash', 'stars'] : ['flash', 'stars']) : day;
     c.act = this.pick(acts);
-    c.timer = { tag: 10, ball: 12, read: 14, jump: 6, puddle: 11, huddle: 12, catch: 9, camp: 18, stars: 15 }[c.act] + r() * 7;
+    c.timer = { tag: 10, ball: 12, read: 14, jump: 6, puddle: 11, huddle: 12, catch: 9, camp: 18, stars: 15, flash: 12 }[c.act] + r() * 7;
     c.orbit = r() * 6.28;
-    const R = { read: 0.75, huddle: 0.3, puddle: 1, catch: 0.9, camp: 1.15, stars: 0.95 }[c.act] ?? 1.5;
-    const goal = { jump: 'jump', puddle: 'splash', catch: 'catch', camp: 'warm', stars: 'gaze' }[c.act] || 'idle';
-    const outward = c.act === 'read' || c.act === 'stars' || c.act === 'catch';
+    const R = { read: 0.75, huddle: 0.3, puddle: 1, catch: 0.9, camp: 1.15, stars: 0.95, flash: 1.3 }[c.act] ?? 1.5;
+    const goal = { jump: 'jump', puddle: 'splash', catch: 'catch', camp: 'warm', stars: 'gaze', flash: 'flash' }[c.act] || 'idle';
+    const outward = c.act === 'read' || c.act === 'stars' || c.act === 'catch' || c.act === 'flash';
     c.members.forEach((m, i) => {
       const a = (i / n) * 6.283;
       const sx = x + Math.cos(a) * R, sz = z + Math.sin(a) * R;
@@ -500,8 +503,15 @@ export class People {
     if (holds) aR = -2.1;
     else if (huddle) aL = aR = -0.9;
     else if (this.wet) { aL = aR = -2.85; lean = Math.max(lean, 0.16); }
-    const lamp = this.dark && p.lit;
-    if (lamp && !holds && (p.mode === 'walk' || p.mode === 'idle')) aL = -0.55;
+    // 手電筒拿在左手：走路照地上、看星星照天空、看書照書本
+    const lamp = this.dark && p.lit && p.mode !== 'warm';
+    if (lamp) aL = p.mode === 'gaze' ? -2.4 : p.mode === 'sit' ? -1 : -1.35;
+    const wide = p.mode === 'flash' ? 1.05 : p.mode === 'wave' ? 0.9 : 0.4;
+    const quick = p.mode === 'flash' ? 3.2 : p.mode === 'wave' ? 0.9 : 1.2;
+    const aim = p.mode === 'gaze' ? 0.5 : p.mode === 'sit' ? 2.6 : p.mode === 'flash' ? 1.3 : 1.95;
+    p.sweep = Math.sin(t * quick + p.ph) * wide;
+    p.aim += (aim - p.aim) * k;
+    p.reach += ((p.mode === 'gaze' ? 1.5 : p.mode === 'sit' ? 0.3 : 1) - p.reach) * k;
     const open = 1 - Math.exp(-dt * 7);
     p.umb += ((holds ? (huddle ? 1.8 : 1) : 0) - p.umb) * open;
     p.lamp += ((lamp ? 1 : 0) - p.lamp) * open;
@@ -517,8 +527,7 @@ export class People {
     if (p.vis < 0.02) {
       if (p.hidden) return;
       p.hidden = true;
-      for (const m of [this.torso, this.head, p.hair, this.pack, this.bookMesh, this.flagMesh, this.umbrella, this.lantern, this.ring]) m.setMatrixAt(i, ZERO);
-      this.glowAt[i * 3 + 1] = HIDE;
+      for (const m of [this.torso, this.head, p.hair, this.pack, this.bookMesh, this.flagMesh, this.umbrella, this.torch, this.beam, this.spot, this.ring]) m.setMatrixAt(i, ZERO);
       for (const j of [0, 1]) { this.arms.setMatrixAt(i * 2 + j, ZERO); this.legs.setMatrixAt(i * 2 + j, ZERO); }
       return;
     }
@@ -544,14 +553,16 @@ export class People {
     this.umbrella.setMatrixAt(i, u > 0.03 ? part(0.17, shoulder, 0.06, 0, u, 0.5 + 0.5 * Math.min(1, u), u) : ZERO);
     const lit = p.lamp;
     if (lit > 0.03) {
-      this.lantern.setMatrixAt(i, part(-0.3, b.hip, 0.18, 0, lit, lit, lit));
-      const sin = Math.sin(p.yaw), cos = Math.cos(p.yaw);
-      this.glowAt[i * 3] = p.x + (-0.3 * cos + 0.18 * sin) * s;
-      this.glowAt[i * 3 + 1] = p.y + (p.lift + b.hip) * s;
-      this.glowAt[i * 3 + 2] = p.z + (0.3 * sin + 0.18 * cos) * s;
+      L.makeRotationFromEuler(E.set(p.aim, p.sweep, 0));
+      L.setPosition(-0.205, shoulder - 0.06, 0.3);
+      O.multiplyMatrices(B, L);
+      this.torch.setMatrixAt(i, O);
+      L.makeScale(lit, lit * p.reach, lit);
+      L.setPosition(0, 0.27, 0);
+      this.beam.setMatrixAt(i, O.multiply(L));
+      this.drawSpot(p, shoulder * s, lit);
     } else {
-      this.lantern.setMatrixAt(i, ZERO);
-      this.glowAt[i * 3 + 1] = HIDE;
+      for (const m of [this.torch, this.beam, this.spot]) m.setMatrixAt(i, ZERO);
     }
     if (p.mode === 'splash' && p.spd < 0.2) {
       const r = 0.25 + ((t * 0.83 + p.ph) % 1) * 0.75;
@@ -561,6 +572,21 @@ export class People {
     } else this.ring.setMatrixAt(i, ZERO);
     this.legs.setMatrixAt(i * 2, part(-0.088, b.hip, 0, p.lL, 1, b.leg, 1));
     this.legs.setMatrixAt(i * 2 + 1, part(0.088, b.hip, 0, p.lR, 1, b.leg, 1));
+  }
+
+  // 光束打到地面的光點；照向天空或超出島面就不畫
+  drawSpot(p, height, lit) {
+    const down = -Math.cos(p.aim);
+    const is = this.islands[p.crew.here];
+    const g = is.group.position;
+    const d = (height * Math.sin(p.aim)) / Math.max(down, 0.01);
+    const a = p.yaw + p.sweep;
+    const lx = p.x + Math.sin(a) * d - g.x, lz = p.z + Math.cos(a) * d - g.z;
+    if (down < 0.2 || d > 3.2 || !is.nav.free(lx, lz)) { this.spot.setMatrixAt(p.idx, ZERO); return; }
+    const r = 0.62 * lit;
+    L.makeScale(r, 1, r * 1.3);
+    L.setPosition(g.x + lx, g.y + is.nav.y(lx, lz) + 0.06, g.z + lz);
+    this.spot.setMatrixAt(p.idx, L);
   }
 
   // 水窪與營火留在活動地點，換地方時慢慢消失
@@ -576,7 +602,7 @@ export class People {
       L.setPosition(x, y + 0.04, z);
       this.puddle.setMatrixAt(c.id, L);
     } else this.puddle.setMatrixAt(c.id, ZERO);
-    const glow = (this.list.length + c.id) * 3;
+    const glow = c.id * 3;
     if (c.fire > 0.02) {
       L.makeScale(c.fire, c.fire, c.fire);
       L.setPosition(x, y + 0.04, z);
@@ -621,10 +647,11 @@ export class People {
       p.vis += ((p.crew.on ? 1 : 0) - p.vis) * k;
       this.draw(p, t);
     }
-    for (const m of [this.torso, this.head, this.hairA, this.hairB, this.arms, this.legs, this.pack, this.bookMesh, this.flagMesh, this.ballMesh, this.umbrella, this.lantern, this.logs, this.flame, this.puddle, this.ring]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [this.torso, this.head, this.hairA, this.hairB, this.arms, this.legs, this.pack, this.bookMesh, this.flagMesh, this.ballMesh, this.umbrella, this.torch, this.beam, this.spot, this.logs, this.flame, this.puddle, this.ring]) m.instanceMatrix.needsUpdate = true;
     const mat = this.glow.material;
     if (dt) mat.opacity += ((this.dark ? 0.5 : 0) - mat.opacity) * (1 - Math.exp(-dt * 2));
     this.glow.visible = mat.opacity > 0.01;
+    this.beam.visible = this.spot.visible = this.torch.visible = this.dark || this.list.some((p) => p.lamp > 0.03);
     this.glow.geometry.attributes.position.needsUpdate = true;
   }
 
@@ -672,8 +699,23 @@ export class People {
     const place = names[c.here];
     if (c.state === 'travel') return c.here === c.to ? `正在${place}逛逛` : `正從${place}走向${names[c.to]}`;
     if (c.state === 'wait') return `在${place}準備出發`;
-    return `${{ lesson: '老師正在講解', read: '大家坐下來看書', ball: '大家在傳球', tag: '大家在玩鬼抓人', jump: '大家開心跳起來', wave: '正在和大家揮手', rainclass: '老師撐著傘繼續上課', puddle: '大家在踩水窪', huddle: '大家擠在同一把大傘下', catch: '正在伸手接雨滴', stars: '大家抬頭看星星', camp: '大家圍著營火聊天', patrol: '老師提著燈籠巡視', nightread: '提著燈籠安靜看書' }[c.act] ?? '正在休息'}（${place}）`;
+    return `${{ lesson: '老師正在講解', read: '大家坐下來看書', ball: '大家在傳球', tag: '大家在玩鬼抓人', jump: '大家開心跳起來', wave: '正在和大家揮手', rainclass: '老師撐著傘繼續上課', puddle: '大家在踩水窪', huddle: '大家擠在同一把大傘下', catch: '正在伸手接雨滴', stars: '大家抬頭看星星', camp: '大家圍著營火聊天', flash: '大家拿手電筒玩光束遊戲', patrol: '老師拿手電筒巡視', nightread: '打開手電筒安靜看書' }[c.act] ?? '正在休息'}（${place}）`;
   }
+}
+
+// 光束越遠越淡
+function beamTexture() {
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 64;
+  const g = c.getContext('2d');
+  const r = g.createLinearGradient(0, 0, 0, 64);
+  r.addColorStop(0, '#ffffff');
+  r.addColorStop(0.55, '#666666');
+  r.addColorStop(1, '#000000');
+  g.fillStyle = r;
+  g.fillRect(0, 0, 4, 64);
+  return new THREE.CanvasTexture(c);
 }
 
 function glowTexture() {
