@@ -1,10 +1,28 @@
 # 由方案 docx 抽出的 plan.md 與 media 產生 src/data/content.json 與 public/images
-# 用法：python scripts/build-content.py <plan.md> <media 資料夾> <emf 轉檔資料夾>
+# 用法：python scripts/build-content.py <plan.md> <media 資料夾> <emf 轉檔資料夾> [高解析原圖資料夾]
 # 文字一律依行號取自方案原文，避免人工重打走樣；學生姓名在此以遮蔽版圖說覆寫。
+# 高解析原圖資料夾放 <圖號>.src，有檔案就取代 Word 裡的同一張圖；之後拿到校刊、剪報原檔照此方式補上。
 import json, os, re, sys
-from PIL import Image
+import cv2
+import numpy as np
+from PIL import Image, ImageFilter
 
 PLAN, MEDIA, EMF = sys.argv[1:4]
+HI = sys.argv[4] if len(sys.argv) > 4 else ''
+# 報導、校刊、作文這類以文字為主的圖，銳化加重；其餘照片維持自然
+DOCS = set('32 72 73 74 75 76 77 125 126 127 130 132 134 136 140 141 184 212 213 214 215'.split())
+# 校刊與學習單上的學生姓名（圖片比例座標），圖變清楚後要模糊處理，和文字圖說的遮蔽原則一致
+MASK = {
+    '75': [(.70, .085, .79, .125)],
+    '77': [(.83, .79, .89, .94)],
+    '125': [(.735, .301, .80, .321), (.735, .502, .80, .522), (.735, .819, .80, .839)],
+    '126': [(.262, .349, .335, .369), (.262, .613, .335, .633), (.262, .875, .335, .895)],
+    '127': [(.258, .337, .34, .355), (.258, .634, .34, .652), (.258, .912, .34, .930)],
+    '212': [(.68, .15, .88, .205)],
+    '213': [(.68, .15, .88, .205)],
+    '214': [(.395, .125, .56, .19)],
+    '215': [(.40, .125, .58, .19)],
+}
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG_DIR = os.path.join(ROOT, 'public', 'images')
 THUMB_DIR = os.path.join(IMG_DIR, 't')
@@ -42,10 +60,10 @@ def text(cell):
     return re.sub(r'\s+/\s+', '\n', IMG_RE.sub('', cell)).strip(' /\n')
 
 
-def I(n, cap=''):
+def I(n, cap='', link=''):
     n = str(n)
     used[n] = True
-    return {'id': n, 'cap': cap}
+    return {'id': n, 'cap': cap, 'link': link} if link else {'id': n, 'cap': cap}
 
 
 def P(*ns):
@@ -109,12 +127,39 @@ def collage(n, caps, band):
     return out
 
 
+def enlarge(im, id_):
+    # Word 裡的圖多半被壓得很小。反覆投影：放大後縮回去和原圖比對，只補差值，
+    # 邊緣變俐落又不會畫出原圖沒有的筆畫，不用 AI 超解析以免改動文字與孩子的臉。
+    scale = min(4, 1600 // max(im.size))
+    if scale < 2:
+        return im
+    lr = np.asarray(im.convert('RGB'), dtype=np.float32)
+    h, w = lr.shape[:2]
+    size = (w * scale, h * scale)
+    hr = cv2.resize(lr, size, interpolation=cv2.INTER_LANCZOS4)
+    for _ in range(6):
+        hr += cv2.resize(lr - cv2.resize(hr, (w, h), interpolation=cv2.INTER_AREA), size, interpolation=cv2.INTER_CUBIC)
+    hr += (.5 if id_ in DOCS else .3) * (hr - cv2.GaussianBlur(hr, (0, 0), scale * .6))
+    out = Image.fromarray(np.clip(hr, 0, 255).astype(np.uint8))
+    if im.mode == 'RGBA':
+        out.putalpha(im.getchannel('A').resize(size, Image.LANCZOS))
+    return out
+
+
+def mask_names(im, id_):
+    w, h = im.size
+    for x0, y0, x1, y1 in MASK.get(id_, []):
+        box = (int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h))
+        im.paste(im.crop(box).filter(ImageFilter.GaussianBlur(h * .012)), box)
+    return im
+
+
 def save(im, id_):
     has_alpha = im.mode in ('RGBA', 'LA', 'P')
-    im = im.convert('RGBA' if has_alpha else 'RGB')
+    im = mask_names(enlarge(im.convert('RGBA' if has_alpha else 'RGB'), id_), id_)
     big = im.copy()
-    big.thumbnail((1280, 1280), Image.LANCZOS)
-    big.save(os.path.join(IMG_DIR, f'{id_}.webp'), quality=78, method=5)
+    big.thumbnail((2000, 2000), Image.LANCZOS)
+    big.save(os.path.join(IMG_DIR, f'{id_}.webp'), quality=86, method=5)
     t = im.copy()
     t.thumbnail((560, 560), Image.LANCZOS)
     t.save(os.path.join(THUMB_DIR, f'{id_}.webp'), quality=70, method=5)
@@ -406,7 +451,7 @@ forest = {'tabs': [
 
 # ───────── 風信飛艇：品牌行銷 ─────────
 brand = {'tabs': [
-    {'label': '多元行銷', 'blocks': [H(L(311).replace('一、', '')), *P(312), {'t': 'fig', 'item': I(184, '台灣公益時報報導：童書之森')}]},
+    {'label': '多元行銷', 'blocks': [H(L(311).replace('一、', '')), *P(312), {'t': 'fig', 'item': I(184, '台灣公益時報報導：童書之森', 'https://www.facebook.com/share/p/1CcGRcCKTZ/')}]},
     {'label': '資源共享', 'blocks': [
         H('閱讀資源共享共好'),
         {'t': 'list', 'items': [re.sub(r'^\(.\)', '', L(n)) for n in (314, 316, 317, 318)]},
@@ -450,7 +495,8 @@ for n in list(used):
         continue
     cand = [f for f in os.listdir(MEDIA) if re.fullmatch(rf'image{n}\.(png|jpeg|jpg)', f)]
     path = os.path.join(MEDIA, cand[0]) if cand else os.path.join(EMF, f'image{n}.png')
-    save(Image.open(path), n)
+    hi = os.path.join(HI, f'{n}.src')
+    save(Image.open(hi if HI and os.path.exists(hi) else path), n)
 
 out = {'islands': islands, 'sizes': sizes}
 dest = os.path.join(ROOT, 'src', 'data', 'content.json')

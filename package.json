@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.7.0",
-  "releaseNotes": "新增登島人次計數器，看看今天有多少人來逛群島！",
+  "version": "1.8.0",
+  "releaseNotes": "點開照片更清楚了！校刊、報導這類圖片也能點一下放大看細節",
   "type": "module",
   "scripts": {
     "dev": "vite",

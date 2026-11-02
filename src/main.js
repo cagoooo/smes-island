@@ -135,7 +135,7 @@ $('#app').innerHTML = `
 </section>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true"><div class="dialog" id="dialog"></div></div>
-<div class="lb" id="lb" role="dialog" aria-modal="true"><figure><img id="lbImg" alt=""><figcaption id="lbCap"></figcaption></figure>
+<div class="lb" id="lb" role="dialog" aria-modal="true"><figure><div class="lb-view" id="lbView"><img id="lbImg" alt=""></div><figcaption><span id="lbCap"></span><a id="lbLink" target="_blank" rel="noopener" hidden>看原始報導 ↗</a><small>點圖片可放大</small></figcaption></figure>
   <button class="round x" data-act="lbClose" aria-label="關閉">×</button><button class="round p" data-act="lbPrev" aria-label="上一張">‹</button><button class="round n" data-act="lbNext" aria-label="下一張">›</button></div>
 <div class="toast" id="toast" role="status"></div>`;
 
@@ -662,7 +662,7 @@ const actions = {
   finaleClose() { closeFinale(); },
   finalePassport() { closeFinale(); showPassport(); },
   finaleAgain() { closeModal(); celebrate(); },
-  lbClose() { $('#lb').classList.remove('open'); },
+  lbClose() { lbZoom(false); $('#lb').classList.remove('open'); },
   lbPrev() { showLb(lbIndex - 1); },
   lbNext() { showLb(lbIndex + 1); },
 };
@@ -672,11 +672,59 @@ function showLb(i) {
   if (!g.length) return;
   lbIndex = (i + g.length) % g.length;
   const it = g[lbIndex];
-  $('#lbImg').src = it.src || full(it.id);
-  $('#lbImg').alt = it.cap;
+  const img = $('#lbImg');
+  const src = it.src || full(it.id);
+  lbZoom(false);
+  if (!img.src.endsWith(src.slice(1))) {
+    img.classList.add('wait');
+    img.src = src;
+  }
+  img.alt = it.cap;
   $('#lbCap').textContent = it.cap;
+  $('#lbLink').hidden = !it.link;
+  if (it.link) $('#lbLink').href = it.link;
   $('#lb').classList.add('open');
 }
+
+// 文件類圖片要能看清楚字：點一下放大到點的位置，手機用手指滑、電腦用滑鼠拖曳
+function lbZoom(on, e) {
+  const img = $('#lbImg');
+  const view = $('#lbView');
+  if (!on) {
+    $('#lb').classList.remove('zoom');
+    img.style.width = '';
+    return;
+  }
+  const r = img.getBoundingClientRect();
+  const w = Math.max(r.width * 2.5, Math.min(img.naturalWidth, innerWidth * 2));
+  $('#lb').classList.add('zoom');
+  img.style.width = `${w}px`;
+  view.scrollLeft = w * (e.clientX - r.left) / r.width - view.clientWidth / 2;
+  view.scrollTop = img.offsetHeight * (e.clientY - r.top) / r.height - view.clientHeight / 2;
+}
+
+let lbDrag = null;
+$('#lbImg').addEventListener('load', (e) => e.target.classList.remove('wait'));
+$('#lbImg').addEventListener('click', (e) => {
+  if (lbDrag?.moved) return;
+  lbZoom(!$('#lb').classList.contains('zoom'), e);
+});
+$('#lbView').addEventListener('pointerdown', (e) => {
+  lbDrag = null;
+  if (e.pointerType !== 'mouse' || !$('#lb').classList.contains('zoom')) return;
+  const v = e.currentTarget;
+  lbDrag = { x: e.clientX, y: e.clientY, l: v.scrollLeft, t: v.scrollTop, on: true, moved: false };
+  e.preventDefault();
+});
+window.addEventListener('pointermove', (e) => {
+  if (!lbDrag?.on) return;
+  const dx = e.clientX - lbDrag.x;
+  const dy = e.clientY - lbDrag.y;
+  if (Math.hypot(dx, dy) > 4) lbDrag.moved = true;
+  $('#lbView').scrollLeft = lbDrag.l - dx;
+  $('#lbView').scrollTop = lbDrag.t - dy;
+});
+window.addEventListener('pointerup', () => { if (lbDrag) lbDrag.on = false; });
 
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button,a');
