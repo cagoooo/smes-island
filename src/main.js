@@ -714,10 +714,17 @@ function paintMusic(on) {
   store.set('smes-music', on);
 }
 
+// 手機的音樂按鈕在工具列最右邊，第一次出聲時告訴訪客怎麼關
+function musicTip() {
+  if (!matchMedia('(pointer: coarse)').matches || store.get('smes-music-tip', false)) return;
+  store.set('smes-music-tip', true);
+  toast('背景音樂開始了，把下方工具列滑到最右邊就能關閉');
+}
+
 async function boot() {
   initUpdate();
   paintQuote(); paintClock(); setHint();
-  music.init(store.get('smes-music', true), paintMusic);
+  music.init(store.get('smes-music', true), paintMusic, musicTip);
   paintMusic(music.want);
   setInterval(paintClock, 15000);
   setInterval(loadLive, 15 * 60 * 1000);

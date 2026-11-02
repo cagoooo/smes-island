@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.2.0",
-  "releaseNotes": "網站有新版本時會主動提醒，按一下就能換成最新內容。",
+  "version": "1.2.1",
+  "releaseNotes": "修正手機聽不到背景音樂的問題，現在點一下畫面就會響起音樂。",
   "type": "module",
   "scripts": {
     "dev": "vite",
