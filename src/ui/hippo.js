@@ -20,7 +20,7 @@ const islandName = Object.fromEntries(ISLANDS.map((d) => [d.id, d.name]));
 
 function progress(n) {
   if (n === 1) return `第一隻！還有 ${TOTAL - 1} 隻在等你`;
-  if (n === TOTAL / 2) return '找到一半了，繼續加油！';
+  if (n === TOTAL / 2) return '找到一半了，可以領證書囉！';
   if (n === TOTAL - 1) return '只剩最後一隻了！';
   return `還有 ${TOTAL - n} 隻躲在雲端`;
 }
@@ -67,20 +67,26 @@ export function flyCount(from) {
   };
 }
 
-export function showFinale() {
+const MILESTONE = {
+  6: { badge: '探險家', title: '找到 6 隻小河馬了！', text: '你是尋寶探險家，可以領證書囉！<br>再找 6 隻，還有金色證書等著你', later: '繼續找小河馬' },
+  12: { badge: '小達人', title: '十二隻全部找到了！', text: '你走遍每一座島，是尋寶小達人！<br>快來領最高榮譽的金色證書', later: '看閱讀護照' },
+};
+
+export function showFinale(level = TOTAL) {
+  const m = MILESTONE[level];
   document.querySelector('#hippoFinale')?.remove();
   const el = document.createElement('div');
   el.id = 'hippoFinale';
   el.className = 'hippo-finale';
   el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', '十二隻小河馬全部找到了');
-  const ring = Array.from({ length: TOTAL }, (_, i) => `<span style="--i:${i}">${ICON}</span>`).join('');
+  el.setAttribute('aria-label', m.title);
+  const ring = Array.from({ length: level }, (_, i) => `<span style="--i:${i * TOTAL / level}">${ICON}</span>`).join('');
   el.innerHTML = `<div class="finale-card card">
     <div class="finale-rays"></div>
-    <div class="finale-ring">${ring}<div class="finale-badge">小達人</div></div>
-    <h2>十二隻全部找到了！</h2>
-    <p>你走遍每一座島，<br>是大河馬書房的尋寶小達人</p>
-    <div class="btn-row"><button class="cta koi" data-act="finaleClose">太棒了</button><button class="cta lake" data-act="finalePassport">看閱讀護照</button></div>
+    <div class="finale-ring">${ring}<div class="finale-badge">${m.badge}</div></div>
+    <h2>${m.title}</h2>
+    <p>${m.text}</p>
+    <div class="btn-row"><button class="cta koi" data-act="finaleCert" data-level="${level}">領取證書</button><button class="cta lake" data-act="${level === TOTAL ? 'finalePassport' : 'finaleClose'}">${m.later}</button></div>
   </div>`;
   document.body.append(el);
 }

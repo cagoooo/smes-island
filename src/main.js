@@ -7,6 +7,7 @@ import { initUpdate } from './ui/update.js';
 import { sheet } from './ui/sheet.js';
 import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
+import { TIERS, certInfo, issue, drawCert, printCert, certTiers } from './ui/cert.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
@@ -160,7 +161,7 @@ const closeModal = () => $('#modal').classList.remove('open');
 const dialogHead = (title) => `<div class="dialog-head"><h2>${esc(title)}</h2><button class="round" data-act="modalClose" aria-label="關閉">×</button></div>`;
 
 function setHint() {
-  $('#hintText').textContent = S.hippos.size === 12 ? '12 隻小河馬全部找到了，你是小達人！' : `雲端藏了 12 隻小河馬，已找到 ${S.hippos.size} 隻`;
+  $('#hintText').textContent = S.hippos.size === 12 ? '12 隻小河馬全部找到了，快去領證書！' : `找到 6 隻、12 隻都能領證書，已找到 ${S.hippos.size} 隻`;
 }
 
 // ───────── 島嶼名牌與定位點 ─────────
@@ -521,10 +522,48 @@ function showPassport() {
   openModal(`${dialogHead('大河馬閱讀護照')}<div class="dialog-body">
     <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面找找看閃閃發光的地方。</p>
     <div class="stamps">${ISLANDS.map((d) => `<button class="stamp ${S.stamps.has(d.id) ? 'on' : ''}" style="--c:${d.color}" data-goto="${d.id}">${esc(d.name)}</button>`).join('')}</div>
+    <h3 class="hippo-title">小河馬證書</h3>
+    <p>找到 6 隻、12 隻各可領一張證書，石門國小的同學帶著證書到校長室，就能領取獎勵！</p>
+    ${certTiers(S.hippos.size)}
     <h3 class="hippo-title">小河馬圖鑑</h3>
     ${hippoGrid(S.hippos)}
     ${S.hippos.size === 12 ? '<div class="btn-row"><button class="cta koi" data-act="finaleAgain">再慶祝一次</button></div>' : ''}
-    <p class="note" style="margin-top:10px">護照紀錄只存在你這台裝置的瀏覽器裡。</p></div>`);
+    <p class="note" style="margin-top:10px">護照紀錄只存在你這台裝置的瀏覽器裡。</p>
+    ${S.hippos.size || certInfo.get() ? '<p class="note"><button class="text-btn" data-act="certReset">共用平板？換下一位小朋友</button></p>' : ''}</div>`);
+}
+
+// 第一次領證書才填姓名，之後兩張證書都用同一個名字，避免共用平板上直接改名再領一張
+function showCertForm(level) {
+  openModal(`${dialogHead(`領取「${TIERS[level].title}」證書`)}<div class="dialog-body cert-form">
+    <p>請填上你的班級和姓名，它們會寫在證書上。</p>
+    <label>班級<input id="certClass" maxlength="10" autocomplete="off" placeholder="例如：三年二班"></label>
+    <label>姓名<input id="certName" maxlength="12" autocomplete="off" placeholder="請寫真實姓名"></label>
+    <p class="cert-err" id="certErr" role="alert" hidden>班級和姓名都要填哦</p>
+    <div class="btn-row"><button class="cta koi" data-act="certCheck" data-level="${level}">下一步</button></div>
+    <p class="note" style="margin-top:10px">班級和姓名只留在這台裝置，不會上傳到網路。</p></div>`);
+  $('#certClass').focus();
+}
+
+let certUrl = '';
+
+async function showCert(level) {
+  const info = certInfo.get();
+  if (!info) { showCertForm(level); return; }
+  const fresh = issue(level);
+  openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
+    <div class="cert-view" id="certView"><p>證書製作中…</p></div>
+    <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
+    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${level}隻.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button></div></div>`, true);
+  try {
+    const blob = await drawCert(level, fresh);
+    if (certUrl) URL.revokeObjectURL(certUrl);
+    certUrl = URL.createObjectURL(blob);
+    $('#certView').innerHTML = `<img src="${certUrl}" alt="${esc(`${fresh.cls} ${fresh.name} 的${TIERS[level].title}證書`)}">`;
+    $('#certSave').href = certUrl;
+    $('#certSave').hidden = false;
+  } catch {
+    $('#certView').innerHTML = '<p>證書製作失敗，請檢查網路後再試一次。</p>';
+  }
 }
 
 function showLog() {
@@ -662,6 +701,33 @@ const actions = {
   finaleClose() { closeFinale(); },
   finalePassport() { closeFinale(); showPassport(); },
   finaleAgain() { closeModal(); celebrate(); },
+  finaleCert(t) { closeFinale(); showCert(+t.dataset.level); },
+  certOpen(t) { showCert(+t.dataset.level); },
+  certCheck(t) {
+    const cls = $('#certClass').value.trim();
+    const name = $('#certName').value.trim();
+    if (!cls || !name) { $('#certErr').hidden = false; return; }
+    const { level } = t.dataset;
+    openModal(`${dialogHead('確認證書上的名字')}<div class="dialog-body cert-form">
+      <p class="cert-who">${esc(cls)}　${esc(name)}</p>
+      <p>確定後就不能修改了，請再看一次有沒有寫對。</p>
+      <div class="btn-row"><button class="cta koi" data-act="certIssue" data-level="${level}" data-cls="${esc(cls)}" data-name="${esc(name)}">確定，領取證書</button><button class="cta lake" data-act="certOpen" data-level="${level}">回去修改</button></div></div>`);
+  },
+  certIssue(t) {
+    issue(+t.dataset.level, t.dataset.cls, t.dataset.name);
+    showCert(+t.dataset.level);
+  },
+  certPrint() { if (certUrl) printCert(certUrl); },
+  certReset() {
+    openModal(`${dialogHead('換下一位小朋友')}<div class="dialog-body">
+      <p>這台裝置的小河馬紀錄和證書都會清除，下一位小朋友要重新尋找。已經存下來或印出來的證書不受影響。</p>
+      <div class="btn-row"><button class="cta koi" data-act="certResetGo">確定清除</button><button class="cta lake" data-act="modalClose">先不要</button></div></div>`);
+  },
+  certResetGo() {
+    store.set('smes-hippos', []);
+    certInfo.clear();
+    location.reload();
+  },
   lbClose() { lbZoom(false); $('#lb').classList.remove('open'); },
   lbPrev() { showLb(lbIndex - 1); },
   lbNext() { showLb(lbIndex + 1); },
@@ -847,6 +913,8 @@ function foundHippo(id, mesh) {
   setTimeout(setHint, calm ? 0 : 1000);
   showFound(id, S.hippos.size);
   if (S.hippos.size === 12) setTimeout(celebrate, 2600);
+  // 其他小河馬還躲著，這裡不跳全體慶祝動作，以免洩漏位置
+  if (S.hippos.size === 6) setTimeout(() => { music.sfx('cheer'); showFinale(6); }, 2600);
 }
 
 // 手機工具列比螢幕寬：箭頭提示還有更多按鈕，滑動手勢失靈時也點得到

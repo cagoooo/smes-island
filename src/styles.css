@@ -515,3 +515,27 @@ body.listing .walkbar { display: none; }
 @media (max-width: 860px) { .hippo-card { top: 66px; } .hippo-card .hippo-icon { width: 60px; height: 60px; } }
 @media (max-width: 860px) { .badges button { width: calc(50% - 7px); max-width: 190px; } }
 @media (prefers-reduced-motion: reduce) { .badges button { transition: none; } .hippo-card, .hippo-card .hippo-icon, .pips i.new, .hintcard.bump, .hippo-finale, .finale-card, .finale-rays, .finale-ring .hippo-icon, .finale-badge { animation: none; } }
+
+/* 小河馬證書 */
+.cert-tiers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.cert-tier { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px; border-radius: 10px; background: var(--paper-3); color: var(--ink-3); text-align: center; }
+.cert-tier strong { font-family: var(--font-display); font-size: var(--fs-lg); }
+.cert-tier span { font-size: var(--fs-xs); }
+.cert-tier b { margin-top: 4px; font-size: var(--fs-sm); }
+.cert-tier.on { background: var(--c); color: #fff; box-shadow: var(--shadow-rest); cursor: pointer; }
+.cert-tier.on:hover { transform: translateY(-2px); }
+.cert-form label { display: block; margin-top: 10px; font-weight: 700; }
+.cert-form input { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 400; color: var(--ink); background: #fff; border: 1px solid var(--line, #cdbfa7); border-radius: 8px; }
+.cert-err { margin-top: 8px; color: #b23a2a; font-weight: 700; }
+.cert-who { font-family: var(--font-display); font-size: var(--fs-xl); text-align: center; margin: 6px 0; }
+.cert-view { display: grid; place-items: center; min-height: 200px; }
+.cert-view img { width: 100%; height: auto; border-radius: 6px; box-shadow: var(--shadow-rest); }
+.cert-tip { margin-top: 10px; text-align: center; font-size: var(--fs-sm); color: var(--ink-2); }
+.text-btn { padding: 4px 0; color: var(--ink-2); font-size: var(--fs-sm); text-decoration: underline; }
+#certPrint { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  html, body { height: auto; overflow: visible; background: #fff; }
+  body > :not(#certPrint) { display: none !important; }
+  #certPrint { display: block; width: 100%; height: auto; }
+}
