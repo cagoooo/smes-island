@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.15.0",
-  "releaseNotes": "接上中央氣象署颱風警報，陸上警報涵蓋桃園時群島會自動進入颱風模式",
+  "version": "1.16.0",
+  "releaseNotes": "掃碼登島！用 iPad 相機掃 QR Code，就能快速進入群島或直接登上指定的島",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "qrcode": "^1.5.4",
     "vite": "^8.3.5"
   }
 }

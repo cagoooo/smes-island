@@ -86,6 +86,7 @@ $('#app').innerHTML = `
 
 <nav class="dock" aria-label="工具列">
   <button class="cta koi" data-act="mission">小河馬尋寶</button>
+  <button class="cta lake" data-act="qr">掃碼登島</button>
   <button class="cta koi" data-act="quiz">閱讀小測驗</button>
   <button class="cta lake" data-act="tour" id="tourBtn">島嶼導覽</button>
   <button class="cta sun" data-act="stroll" id="strollBtn">跟著逛島</button>
@@ -579,6 +580,17 @@ function showStorm() {
     <p class="note" style="margin-top:10px">颱風警報來自中央氣象署開放資料，風雨資料來自 Open-Meteo，是依學校位置估算；停班停課資料來自行政院人事行政總處。更新可能有延遲，請以官方公告為準。</p></div>`);
 }
 
+// 老師投影給全班掃，或選一座島的 QR；圖檔由 scripts/make-qr.mjs 產生
+function showQr(id = 'site') {
+  const name = id === 'site' ? '石門品牌群島' : ISLANDS.find((d) => d.id === id).name;
+  openModal(`${dialogHead('掃碼登島')}<div class="dialog-body qr-box">
+    <img src="./qr/${id}.svg" alt="${esc(name)}的 QR Code" width="360" height="360">
+    <p class="qr-name">${esc(name)}</p>
+    <p class="qr-tip">打開 iPad 相機對準 QR Code，點跳出來的連結就能登島</p>
+    <label class="qr-pick">要去哪裡？<select id="qrPick"><option value="site">全部群島</option>${ISLANDS.map((d) => `<option value="${d.id}"${d.id === id ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
+    <div class="btn-row"><button class="cta koi" data-act="qrBig">全班投影</button><a class="cta lake" href="./qr/smes-island-poster.pdf" target="_blank" rel="noopener">列印海報</a><a class="cta moss" href="./qr/smes-island-cards.pdf" target="_blank" rel="noopener">列印 12 島卡</a></div></div>`);
+}
+
 function showMission() {
   const n = S.hippos.size;
   const next = n < 6 ? `再找 ${6 - n} 隻，就能領「尋寶探險家」證書` : n < 12 ? `再找 ${12 - n} 隻，就能領金色的「尋寶小達人」證書` : '全部找到了，快去領證書！';
@@ -767,6 +779,8 @@ const actions = {
   quiz() { showQuiz(); },
   passport() { showPassport(); },
   mission() { showMission(); },
+  qr() { showQr(); },
+  qrBig() { $('#dialog').classList.toggle('qr-big'); },
   log() { showLog(); },
   honors() { showHonors(); },
   watch() { const on = $('#watch').classList.toggle('opened'); if (!S.island) $('#hint').hidden = on; },
@@ -959,6 +973,7 @@ document.addEventListener('click', (e) => {
 });
 
 $('#search').addEventListener('input', (e) => renderList(e.target.value));
+document.addEventListener('change', (e) => { if (e.target.id === 'qrPick') showQr(e.target.value); });
 
 window.addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea')) return;

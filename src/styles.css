@@ -384,6 +384,18 @@ body.touring .watch, body.touring .hintcard { display: none; }
 body.walking .watch, body.walking .hintcard { display: none; }
 body.listing .walkbar { display: none; }
 
+/* 工具列放不下時可左右滑；放得下時由兩端的 auto 邊距維持置中，避免最左邊的按鈕被切掉（iPad 橫放約 1080 寬） */
+@media (max-width: 1440px) {
+  .dock { justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; pointer-events: auto; touch-action: pan-x; padding: 8px 4px; }
+  .dock * { touch-action: pan-x; }
+  .dock::-webkit-scrollbar { display: none; }
+  .dock > :first-child { margin-left: auto; }
+  .dock > :last-child { margin-right: auto; }
+  .dock-nav { position: fixed; z-index: 21; bottom: calc(20px + var(--safe-b)); display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 1.5rem; line-height: 1; box-shadow: var(--shadow-float); }
+  .dock-nav.prev { left: 6px; }
+  .dock-nav.next { right: 6px; }
+  .dock-nav[hidden] { display: none; }
+}
 @media (max-width: 1180px) {
   .quote { display: none; }
   .topbar { justify-content: space-between; }
@@ -569,3 +581,14 @@ body.listing .walkbar { display: none; }
 .storm-now { padding: 10px 12px; background: #1e2a3a; color: #fff; border-radius: 10px; font-weight: 700; }
 .storm-tips { margin: 12px 0 0; padding-left: 22px; line-height: 1.8; }
 @media (prefers-reduced-motion: reduce) { .storm-chip { animation: none; } }
+
+/* 掃碼登島 */
+.qr-box { text-align: center; }
+.qr-box img { display: block; width: min(320px, 100%, calc(100dvh - 330px)); min-width: 200px; height: auto; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: var(--shadow-rest); }
+.qr-name { margin-top: 10px; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; }
+.qr-tip { color: var(--ink-2); font-size: var(--fs-sm); }
+.qr-pick { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: 700; }
+.qr-pick select { padding: 8px 10px; font: inherit; font-size: 16px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.dialog.qr-big { width: min(960px, 100%); }
+.dialog.qr-big .qr-box img { width: min(100%, calc(100dvh - 210px)); max-width: 760px; }
+.dialog.qr-big .qr-tip, .dialog.qr-big .qr-pick { display: none; }
