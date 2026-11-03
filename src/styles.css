@@ -121,7 +121,6 @@ button.tile:hover { background: var(--paper-3); }
 .panel-head { padding: 14px 20px 0; background: linear-gradient(color-mix(in srgb, var(--c) 18%, var(--paper)), var(--paper)); border-top: 5px solid var(--c); position: relative; }
 .handle { display: none; }
 .peek-name { display: none; }
-.dock-nav { display: none; }
 .ph-row { display: flex; align-items: center; gap: 6px; }
 .ph-row .kicker { flex: 1; text-align: center; font-size: var(--fs-xs); font-weight: 700; color: color-mix(in srgb, var(--c) 72%, var(--ink)); }
 .round { width: 34px; height: 34px; border-radius: 50%; background: #fff9; display: grid; place-items: center; font-size: 1.1rem; color: var(--ink-2); box-shadow: 0 0 0 1px var(--line); flex: none; }
@@ -384,18 +383,19 @@ body.touring .watch, body.touring .hintcard { display: none; }
 body.walking .watch, body.walking .hintcard { display: none; }
 body.listing .walkbar { display: none; }
 
-/* 工具列放不下時可左右滑；放得下時由兩端的 auto 邊距維持置中，避免最左邊的按鈕被切掉（iPad 橫放約 1080 寬） */
-@media (max-width: 1440px) {
-  .dock { justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; pointer-events: auto; touch-action: pan-x; padding: 8px 4px; }
-  .dock * { touch-action: pan-x; }
-  .dock::-webkit-scrollbar { display: none; }
-  .dock > :first-child { margin-left: auto; }
-  .dock > :last-child { margin-right: auto; }
-  .dock-nav { position: fixed; z-index: 21; bottom: calc(20px + var(--safe-b)); display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 1.5rem; line-height: 1; box-shadow: var(--shadow-float); }
-  .dock-nav.prev { left: 6px; }
-  .dock-nav.next { right: 6px; }
-  .dock-nav[hidden] { display: none; }
-}
+/* 工具列放不下時可左右滑（觸控滑動、滑鼠滾輪、滑鼠拖曳、兩端箭頭）；放得下時由兩端的 auto 邊距維持置中，避免最左邊的按鈕被切掉。
+   不分螢幕寬度都適用：電腦縮放比例調大、視窗縮小時，寬螢幕一樣可能放不下 */
+.dock { justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; pointer-events: auto; touch-action: pan-x; padding: 8px 4px; }
+.dock * { touch-action: pan-x; }
+.dock::-webkit-scrollbar { display: none; }
+.dock > :first-child { margin-left: auto; }
+.dock > :last-child { margin-right: auto; }
+.dock.can-drag { cursor: grab; }
+.dock.dragging, .dock.dragging * { cursor: grabbing; user-select: none; }
+.dock-nav { position: fixed; z-index: 21; bottom: calc(20px + var(--safe-b)); display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 1.5rem; line-height: 1; box-shadow: var(--shadow-float); }
+.dock-nav.prev { left: 6px; }
+.dock-nav.next { right: 6px; }
+.dock-nav[hidden] { display: none; }
 @media (max-width: 1180px) {
   .quote { display: none; }
   .topbar { justify-content: space-between; }
@@ -466,6 +466,7 @@ body.listing .walkbar { display: none; }
   .toast { top: 64px; font-size: var(--fs-sm); }
 }
 @media (min-width: 861px) { .mob-only { display: none !important; } }
+@media (min-width: 861px) { .watch.shut { transform: translateX(calc(100% + 24px)); opacity: 0; pointer-events: none; } }
 @media (max-width: 860px) { .desk-only { display: none !important; } }
 @media (prefers-reduced-motion: reduce) {
   .loader-card img, .watch-head .pulse { animation: none; }

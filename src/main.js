@@ -47,7 +47,7 @@ $('#app').innerHTML = `
 </header>
 
 <aside class="watch card" id="watch" aria-label="雲端瞭望台">
-  <div class="watch-head"><span class="pulse"></span><h2>雲端瞭望台</h2><button class="round mob-only" data-act="watch" aria-label="關閉">×</button></div>
+  <div class="watch-head"><span class="pulse"></span><h2>雲端瞭望台</h2><button class="round" data-act="watch" aria-label="收起雲端瞭望台" title="收起瞭望台，群島畫面更乾淨">×</button></div>
   <div class="watch-body">
     <p class="status-line" id="schoolState"></p>
     <button class="tile" data-act="res"><h3>石門水庫即時</h3><div class="res-row"><div class="gauge"><i data-res-fill style="height:0"></i></div><div class="res-num"><strong data-res-level>讀取中…</strong><p data-res-note></p></div></div></button>
@@ -104,7 +104,7 @@ $('#app').innerHTML = `
     <button data-act="time" id="timeBtn" title="切換時間">即時</button>
     <button class="on desk-only" data-act="tilt" id="tiltBtn" title="微縮移軸特效">移軸</button>
     <button data-act="log">日誌</button>
-    <button class="mob-only" data-act="watch">瞭望台</button>
+    <button data-act="watch" id="watchBtn" aria-pressed="true" title="顯示或收起雲端瞭望台">瞭望台</button>
   </div>
 </nav>
 <button class="dock-nav prev" id="dockPrev" data-act="dockPrev" aria-label="往前看工具列" hidden>‹</button>
@@ -358,8 +358,26 @@ function updateInset() {
     else world.setInset(($('#panel').offsetWidth + 14) / 2, 0);
     return;
   }
-  world.setInset(isMobile() ? 0 : ($('#watch').offsetWidth + 14) / 2, 0);
+  world.setInset(isMobile() || $('#watch').classList.contains('shut') ? 0 : ($('#watch').offsetWidth + 14) / 2, 0);
 }
+
+// 電腦版可以收起瞭望台讓群島畫面更乾淨，選擇會記住；手機版維持點了才展開
+function setWatch(on, quiet = false) {
+  $('#watch').classList.toggle('shut', !on);
+  store.set('smes-watch', on);
+  paintWatch();
+  updateInset();
+  if (!on && !quiet) toast('瞭望台收起來了，下方工具列「瞭望台」可以再打開');
+}
+
+function paintWatch() {
+  const w = $('#watch');
+  const on = isMobile() ? w.classList.contains('opened') : !w.classList.contains('shut');
+  const b = $('#watchBtn');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', on);
+}
+window.addEventListener('resize', paintWatch);
 window.addEventListener('resize', updateInset);
 
 // 收合時鏡頭退遠看整座島，拉回來才恢復近看
@@ -795,7 +813,12 @@ const actions = {
   qrBig() { $('#dialog').classList.toggle('qr-big'); },
   log() { showLog(); },
   honors() { showHonors(); },
-  watch() { const on = $('#watch').classList.toggle('opened'); if (!S.island) $('#hint').hidden = on; },
+  watch() {
+    if (!isMobile()) { setWatch($('#watch').classList.contains('shut')); return; }
+    const on = $('#watch').classList.toggle('opened');
+    if (!S.island) $('#hint').hidden = on;
+    paintWatch();
+  },
   res() { openIsland('walk', { tab: 2 }); },
   tour() { if (S.touring) stopTour(true); else startTour(); },
   tourPause(el) { S.tourPaused = !S.tourPaused; el.textContent = S.tourPaused ? '繼續' : '暫停'; },
@@ -1090,8 +1113,43 @@ function initDock() {
     $('#dockPrev').hidden = dock.scrollLeft < 4;
     $('#dockNext').hidden = dock.scrollLeft > dock.scrollWidth - dock.clientWidth - 4;
   };
+  const over = () => dock.scrollWidth > dock.clientWidth + 4;
   dock.addEventListener('scroll', paint, { passive: true });
   window.addEventListener('resize', paint);
+  // 按鈕顯示／隱藏（換下一位、瞭望台）會改變總寬度，跟著重算箭頭與拖曳游標
+  const ro = new ResizeObserver(() => { paint(); dock.classList.toggle('can-drag', over()); });
+  ro.observe(dock);
+  [...dock.children].forEach((el) => ro.observe(el));
+  // 滑鼠滾輪上下捲，轉成工具列左右捲
+  dock.addEventListener('wheel', (e) => {
+    if (!over() || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    dock.scrollLeft += e.deltaY;
+  }, { passive: false });
+  // 滑鼠按住拖曳左右移；拖過頭才算拖曳，並擋掉放開時誤觸的按鈕
+  let drag = null;
+  dock.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || !over()) return;
+    drag = { x: e.clientX, left: dock.scrollLeft, moved: false };
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < 6) return;
+    drag.moved = true;
+    dock.classList.add('dragging');
+    dock.scrollLeft = drag.left - dx;
+  });
+  window.addEventListener('pointerup', () => {
+    if (!drag) return;
+    if (drag.moved) {
+      const stop = (e) => { e.stopPropagation(); e.preventDefault(); };
+      dock.addEventListener('click', stop, { capture: true, once: true });
+      setTimeout(() => dock.removeEventListener('click', stop, true), 0);
+    }
+    dock.classList.remove('dragging');
+    drag = null;
+  });
   paint();
 }
 
@@ -1107,6 +1165,7 @@ async function boot() {
   sheet.init($('#panel'), isMobile, onSheet);
   initDock();
   paintQuote(); paintClock(); setHint();
+  setWatch(store.get('smes-watch', true), true);
   music.init({ want: store.get('smes-music', true), sfx: store.get('smes-sfx', true), onChange: paintMusic, onStart: musicTip, onSfx: paintSfx });
   paintMusic(music.want);
   paintSfx(music.sfxOn);

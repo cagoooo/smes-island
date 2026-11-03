@@ -1,7 +1,7 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.16.1",
+  "version": "1.17.0",
   "releaseNotes": "按下跨域串聯會自動回到整個群島，連線一次看完整",
   "type": "module",
   "scripts": {
