@@ -514,6 +514,7 @@ body.listing .walkbar { display: none; }
 .finale-ring span { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; transform: rotate(calc(var(--i) * 30deg)) translateY(-80px) rotate(calc(var(--i) * -30deg)); }
 .finale-ring .hippo-icon { width: 40px; height: 40px; animation: hippo-in .5s cubic-bezier(.2, 1.7, .4, 1) calc(var(--i) * 70ms + .3s) backwards; }
 .finale-badge { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #f5c542, var(--gold)); color: #fff; font-family: var(--font-display); font-size: var(--fs-md); box-shadow: 0 0 0 5px #fff8, 0 8px 18px -6px rgba(90, 55, 10, .6); animation: badge 2.4s ease-in-out infinite; }
+.finale-badge.m { background: linear-gradient(145deg, #a46bc0, #6a3480); }
 .hippo-title { font-family: var(--font-display); font-size: var(--fs-md); margin-top: 16px; }
 .hippo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
 .hippo-chip { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--r-sm); background: var(--paper-2); font-size: var(--fs-xs); line-height: 1.3; color: var(--ink-3); }
@@ -530,7 +531,7 @@ body.listing .walkbar { display: none; }
 @keyframes badge { 50% { scale: 1.07; } }
 @media (max-width: 860px) { .hippo-card { top: 66px; } .hippo-card .hippo-icon { width: 60px; height: 60px; } }
 @media (max-width: 860px) { .badges button { width: calc(50% - 7px); max-width: 190px; } }
-@media (prefers-reduced-motion: reduce) { .badges button { transition: none; } .hippo-card, .hippo-card .hippo-icon, .pips i.new, .hintcard.bump, .hippo-finale, .finale-card, .finale-rays, .finale-ring .hippo-icon, .finale-badge { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .badges button { transition: none; } .hippo-card, .hippo-card .hippo-icon, .pips i.new, .hintcard.bump, .hippo-finale, .finale-card, .finale-rays, .finale-ring .hippo-icon, .finale-badge, .cert-tier.go { animation: none; } }
 
 /* 小河馬證書 */
 .cert-tiers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
@@ -540,6 +541,11 @@ body.listing .walkbar { display: none; }
 .cert-tier b { margin-top: 4px; font-size: var(--fs-sm); }
 .cert-tier.on { background: var(--c); color: #fff; box-shadow: var(--shadow-rest); cursor: pointer; }
 .cert-tier.on:hover { transform: translateY(-2px); }
+.cert-tier small { font-size: .75rem; font-weight: 700; opacity: .85; }
+.cert-tier.lock { cursor: pointer; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 45%, transparent); }
+.cert-tier.go { animation: tier-glow 2s ease-in-out infinite; }
+.cert-tier.soon { background: repeating-linear-gradient(135deg, #e6eef7 0 12px, #dbe6f2 12px 24px); color: #3e5b7a; box-shadow: inset 0 0 0 2px #b9cbe0; }
+@keyframes tier-glow { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 35%, transparent), var(--shadow-rest); } }
 .cert-form label { display: block; margin-top: 10px; font-weight: 700; }
 .cert-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cert-form input, .cert-form select { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 400; color: var(--ink); background: #fff; border: 1px solid var(--line, #cdbfa7); border-radius: 8px; }
@@ -568,9 +574,64 @@ body.listing .walkbar { display: none; }
 .mission span { display: block; font-size: var(--fs-sm); color: var(--ink-2); }
 .mission-now { margin-top: 12px; text-align: center; font-weight: 700; }
 .mission-now b { color: var(--koi); font-size: var(--fs-lg); }
+.stage3 { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 11px 14px; border-radius: 12px; background: color-mix(in srgb, #7a3f8f 10%, #fff); border: 2px solid #7a3f8f; line-height: 1.55; }
+.stage3 strong { display: block; font-family: var(--font-display); font-size: var(--fs-lg); color: #6a3480; }
+.stage3 span { display: block; font-size: var(--fs-sm); color: var(--ink-2); }
+.stage3 b { color: #6a3480; }
+.stage3 .cta { flex: none; }
+.stage4 { margin-top: 8px; padding: 7px 12px; border-radius: 10px; background: #e9f0f8; color: #3e5b7a; font-size: var(--fs-sm); font-weight: 700; text-align: center; }
+
+/* 第三段：島嶼閱讀挑戰（對話框靠邊、背景不壓暗，看得到鏡頭飛到哪座島） */
+.modal.peek { background: rgba(38, 28, 16, .12); }
+@media (min-width: 861px) {
+  .modal.peek { justify-items: end; align-items: start; padding: 92px 14px 14px; }
+  .modal.peek .dialog { width: min(500px, 42vw); max-height: calc(100dvh - 106px); }
+}
+@media (max-width: 860px) {
+  .modal.peek { align-items: end; padding: 8px; }
+  .modal.peek .dialog { max-height: 66dvh; }
+}
+.ch-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ch-lv { padding: 3px 11px; border-radius: 99px; background: var(--c); color: #fff; font-size: var(--fs-sm); font-weight: 700; }
+.ch-life { display: flex; gap: 3px; font-size: 1.15rem; color: #d8cbb6; }
+.ch-life i { font-style: normal; }
+.ch-life i.on { color: var(--koi); }
+.ch-hippo { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 12px; border-radius: 12px; background: #fff8; }
+.ch-hippo .hippo-icon { flex: none; width: 52px; height: 52px; }
+.ch-hippo p { margin: 0; line-height: 1.5; }
+.ch-hippo b { display: block; color: #b95b76; }
+.ch-ctx { margin-top: 10px; padding: 8px 12px; border-left: 4px solid var(--gold); background: #fff6; }
+.dialog-body.ch .quiz-q { margin-top: 10px; }
+.ch-opt.right { background: #dcefd5; box-shadow: inset 0 0 0 2px #4f8f3a; font-weight: 700; }
+.ch-opt.wrong { background: #f8dcd6; box-shadow: inset 0 0 0 2px #b23a2a; }
+.ch-opt.dim { opacity: .55; }
+.ch-opt:disabled { cursor: default; color: inherit; }
+.ch-fb { margin-top: 12px; padding: 12px 14px; border-radius: 12px; }
+.ch-fb.ok { background: #e6f3df; }
+.ch-fb.no { background: #fbe7e2; }
+.ch-fb strong { display: block; font-family: var(--font-display); font-size: var(--fs-lg); }
+.ch-fb.ok strong { color: #3e7a2c; }
+.ch-fb.no strong { color: #a5321f; }
+.ch-fb p { margin: 4px 0 10px; color: var(--ink-2); }
+.ch-fb .cta { margin-top: 4px; }
+.ch-pips { display: flex; gap: 4px; margin-top: 14px; }
+.ch-pips i { flex: 1; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--c) 22%, #e9e0d0); }
+.ch-pips i.ok { background: var(--c); }
+.ch-pips i.no { background: repeating-linear-gradient(135deg, #b23a2a 0 3px, #f2cfc7 3px 6px); }
+.ch-rules { margin: 10px 0 0; padding-left: 1.3em; line-height: 1.7; }
+.ch-band { margin-top: 12px; text-align: center; font-weight: 700; }
+.ch-band b { color: #6a3480; }
+.ch-grades { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.ch-grades .cta { justify-content: center; }
+.ch-need { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.ch-need li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px 9px 40px; position: relative; border-radius: 10px; background: #fff8; }
+.ch-need li::before { content: ""; position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; box-shadow: inset 0 0 0 2px #b9a98e; }
+.ch-need li.ok::before { content: "✓"; display: grid; place-items: center; background: var(--moss); color: #fff; font-size: .8rem; font-weight: 700; box-shadow: none; }
+.ch-need span { color: var(--ink-3); font-weight: 700; }
+.ch-end { text-align: center; }
 @media (max-width: 480px) {
-  .handover { flex-direction: column; align-items: stretch; text-align: center; }
-  .handover .cta { justify-content: center; }
+  .handover, .stage3 { flex-direction: column; align-items: stretch; text-align: center; }
+  .handover .cta, .stage3 .cta { justify-content: center; }
 }
 
 /* 颱風應變 */

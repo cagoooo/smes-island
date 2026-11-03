@@ -1,11 +1,11 @@
-// 找到小河馬的畫面動畫：登場卡片、數字飛入計數卡、護照圖鑑與十二隻全滿的慶祝
+// 找到小河馬的畫面動畫：登場卡片、數字飛入計數卡、護照圖鑑、十二隻全滿與通過閱讀挑戰的慶祝
 import { HIPPOS, ISLANDS } from '../data/site.js';
 
 const TOTAL = 12;
 const CARD_MS = 5200;
 const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const ICON = `<svg class="hippo-icon" viewBox="0 0 64 64" aria-hidden="true">
+export const ICON = `<svg class="hippo-icon" viewBox="0 0 64 64" aria-hidden="true">
   <circle cx="15" cy="17" r="8" fill="#e27f99"/><circle cx="49" cy="17" r="8" fill="#e27f99"/>
   <circle cx="15" cy="17" r="4" fill="#f9c4d0"/><circle cx="49" cy="17" r="4" fill="#f9c4d0"/>
   <ellipse cx="32" cy="29" rx="21" ry="19" fill="#f09ab0"/>
@@ -69,24 +69,26 @@ export function flyCount(from) {
 
 const MILESTONE = {
   6: { badge: '探險家', title: '找到 6 隻小河馬了！', text: '你是尋寶探險家，可以領證書囉！<br>再找 6 隻，還有金色證書等著你', later: '繼續找小河馬' },
-  12: { badge: '小達人', title: '十二隻全部找到了！', text: '你走遍每一座島，是尋寶小達人！<br>快來領最高榮譽的金色證書', later: '看閱讀護照' },
+  12: { badge: '小達人', title: '十二隻全部找到了！', text: '你走遍每一座島，是尋寶小達人！<br>快來領金色證書，集滿 12 枚章還能挑戰尋河馬達人', later: '看閱讀護照' },
+  M: { badge: '達人', title: '通過十二座島的閱讀挑戰！', text: '你是尋河馬達人！<br>領取證書，到校長室兌換小客人招待券', later: '看閱讀護照' },
 };
 
-export function showFinale(level = TOTAL) {
+export function showFinale(level = TOTAL, score = 0) {
   const m = MILESTONE[level];
+  const n = level === 'M' ? TOTAL : level;
   document.querySelector('#hippoFinale')?.remove();
   const el = document.createElement('div');
   el.id = 'hippoFinale';
   el.className = 'hippo-finale';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', m.title);
-  const ring = Array.from({ length: level }, (_, i) => `<span style="--i:${i * TOTAL / level}">${ICON}</span>`).join('');
+  const ring = Array.from({ length: n }, (_, i) => `<span style="--i:${i * TOTAL / n}">${ICON}</span>`).join('');
   el.innerHTML = `<div class="finale-card card">
     <div class="finale-rays"></div>
-    <div class="finale-ring">${ring}<div class="finale-badge">${m.badge}</div></div>
+    <div class="finale-ring">${ring}<div class="finale-badge${level === 'M' ? ' m' : ''}">${m.badge}</div></div>
     <h2>${m.title}</h2>
-    <p>${m.text}</p>
-    <div class="btn-row"><button class="cta koi" data-act="finaleCert" data-level="${level}">領取證書</button><button class="cta lake" data-act="${level === TOTAL ? 'finalePassport' : 'finaleClose'}">${m.later}</button></div>
+    <p>${score ? `12 題答對 ${score} 題，` : ''}${m.text}</p>
+    <div class="btn-row"><button class="cta koi" data-act="finaleCert" data-level="${level}">領取證書</button><button class="cta lake" data-act="${level === 6 ? 'finaleClose' : 'finalePassport'}">${m.later}</button></div>
   </div>`;
   document.body.append(el);
 }

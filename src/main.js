@@ -8,6 +8,8 @@ import { sheet } from './ui/sheet.js';
 import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
+import { challenge, loadBank, newRun, answer, levelHtml, rules } from './ui/challenge.js';
+import { BANDS, PASS, bandOf } from './data/challenge.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAlert, stormState, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
@@ -154,25 +156,45 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('on'), 3200);
 }
 
-function openModal(html, wide = false) {
+// peek：閱讀挑戰的對話框靠邊放、背景不壓暗，讓孩子看得到鏡頭飛到哪一座島
+function openModal(html, wide = false, peek = false) {
   const d = $('#dialog');
+  const was = $('#modal').classList.contains('peek');
   d.className = `dialog${wide ? ' wide' : ''}`;
   d.innerHTML = html;
   delete d.dataset.lock;
+  $('#modal').classList.toggle('peek', peek);
+  if (peek || was) $('#watch').classList.toggle('away', peek || !!S.island);
   $('#modal').classList.add('open');
   $('.round[data-act="modalClose"]', d)?.focus();
+  if (peek) requestAnimationFrame(() => world?.setInset(isMobile() ? 0 : (d.offsetWidth + 14) / 2, isMobile() ? d.offsetHeight / 2 - 10 : 0));
+  else if (was) updateInset();
 }
-const closeModal = () => $('#modal').classList.remove('open');
+function closeModal() {
+  const was = $('#modal').classList.contains('peek');
+  $('#modal').classList.remove('open', 'peek');
+  if (!was) return;
+  $('#watch').classList.toggle('away', !!S.island);
+  updateInset();
+}
 const dialogHead = (title) => `<div class="dialog-head"><h2>${esc(title)}</h2><button class="round" data-act="modalClose" aria-label="關閉">×</button></div>`;
 
 // 共用平板要交給下一位時的清除入口，寫在一起讓文字和按鈕一致
-const hasProgress = () => S.hippos.size > 0 || S.stamps.size > 0 || !!certInfo.get();
+const hasProgress = () => S.hippos.size > 0 || S.stamps.size > 0 || !!certInfo.get() || !!challenge.get();
+const passed = () => challenge.get()?.state === 'pass';
+const ready = () => S.hippos.size === 12 && S.stamps.size === 12;
+const tierState = () => ({ hippos: S.hippos.size, stamps: S.stamps.size, passed: passed(), playing: challenge.get()?.state === 'play' });
+const lvl = (v) => (v === 'M' ? 'M' : +v);
 const handover = (text) => `<div class="handover"><p>${text}</p><button class="cta koi" data-act="certReset">換下一位同學</button></div>`;
 const paintNext = () => { $('#nextBtn').hidden = !hasProgress(); };
 
 function setHint() {
   paintNext();
-  $('#hintText').textContent = S.hippos.size === 12 ? '12 隻小河馬全部找到了，快去領證書！' : `找到 6 隻、12 隻都能領證書，已找到 ${S.hippos.size} 隻`;
+  const n = S.hippos.size;
+  $('#hintText').textContent = n < 12 ? `找到 6 隻、12 隻都能領證書，已找到 ${n} 隻`
+    : passed() ? '你是尋河馬達人！記得帶證書到校長室兌換招待券'
+      : S.stamps.size < 12 ? `12 隻都找到了！再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
+        : '12 隻、12 枚章都集滿了，快來挑戰尋河馬達人！';
 }
 
 // ───────── 島嶼名牌與定位點 ─────────
@@ -339,8 +361,8 @@ function openIsland(id, { tab = 0, fly = true, push = true, keepSheet = false } 
     music.sfx('stamp');
     S.stamps.add(id);
     store.set('smes-stamps', [...S.stamps]);
-    paintNext();
-    if (S.stamps.size === order.length) toast('恭喜！閱讀護照十二枚印章全部集滿了');
+    setHint();
+    if (S.stamps.size === order.length) toast(S.hippos.size === 12 && !passed() ? '閱讀護照集滿了！到閱讀護照挑戰「尋河馬達人」吧' : '恭喜！閱讀護照十二枚印章全部集滿了');
     else toast(`閱讀護照蓋章：${d.name}（${S.stamps.size} / 12）`);
   }
   if (!whole) sheet.reset();
@@ -611,7 +633,8 @@ function showQr(id = 'site') {
 
 function showMission() {
   const n = S.hippos.size;
-  const next = n < 6 ? `再找 ${6 - n} 隻，就能領「尋寶探險家」證書` : n < 12 ? `再找 ${12 - n} 隻，就能領金色的「尋寶小達人」證書` : '全部找到了，快去領證書！';
+  const next = n < 6 ? `再找 ${6 - n} 隻，就能領「尋寶探險家」證書` : n < 12 ? `再找 ${12 - n} 隻，就能領金色的「尋寶小達人」證書`
+    : passed() ? '你已經是尋河馬達人了！' : S.stamps.size < 12 ? `全部找到了！再集滿 ${12 - S.stamps.size} 枚章，就能挑戰尋河馬達人` : '全部找到了，快去挑戰尋河馬達人！';
   store.set('smes-mission-seen', true);
   openModal(`${dialogHead('小河馬尋寶任務')}<div class="dialog-body">
     <p>12 座浮空島上，各躲著一隻小河馬。找到牠們，就能領證書，再到校長室領取獎勵！</p>
@@ -621,6 +644,8 @@ function showMission() {
       <li><strong>領證書</strong><span>找到 6 隻領「尋寶探險家」，12 隻領「尋寶小達人」。到「閱讀護照」選班級、填姓名就能領。</span></li>
       <li><strong>到校長室領獎勵</strong><span>把證書存起來或印出來，石門國小的同學帶到校長室就能領取獎勵。</span></li>
     </ol>
+    <div class="stage3"><div><strong>第三段・尋河馬達人</strong><span>找齊 12 隻、集滿 12 枚閱讀護照章，再通過十二座島的閱讀挑戰（12 題答對 ${PASS} 題），就能領紫色證書，到校長室兌換<b>小客人招待券</b>！</span></div><button class="cta koi" data-act="challenge">看挑戰</button></div>
+    <p class="stage4">第四段「AI科技島」即將登場：高年級專題發表，中低年級一起來觀賞</p>
     <p class="mission-now">目前找到 <b>${n}</b> / 12 隻，${next}</p>
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <div class="btn-row"><button class="cta koi" data-act="modalClose">開始尋寶</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
@@ -631,8 +656,8 @@ function showPassport() {
     <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面找找看閃閃發光的地方。</p>
     <div class="stamps">${ISLANDS.map((d) => `<button class="stamp ${S.stamps.has(d.id) ? 'on' : ''}" style="--c:${d.color}" data-goto="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <h3 class="hippo-title">小河馬證書</h3>
-    <p>找到 6 隻、12 隻各可領一張證書，石門國小的同學帶著證書到校長室，就能領取獎勵！</p>
-    ${certTiers(S.hippos.size)}
+    <p>找到 6 隻、12 隻各可領一張證書；集滿 12 枚章再通過閱讀挑戰，還能領「尋河馬達人」，到校長室兌換小客人招待券！</p>
+    ${certTiers(tierState())}
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <h3 class="hippo-title">小河馬圖鑑</h3>
     ${hippoGrid(S.hippos)}
@@ -676,14 +701,15 @@ function checkHandover() {
 let certUrl = '';
 
 async function showCert(level) {
+  if (level === 'M' && !passed()) { showChallenge(); return; }
   const info = certInfo.get();
   if (!info) { showCertForm(level); return; }
-  const fresh = issue(level);
+  const fresh = issue(level, '', '', level === 'M' ? challenge.get().score : 0);
   sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
     <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
-    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${level}隻.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button></div>
+    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button></div>
     ${handover('要把平板交給下一位同學嗎？先把證書存好或印好，再按這裡。')}</div>`, true);
   try {
     const blob = await drawCert(level, fresh);
@@ -695,6 +721,74 @@ async function showCert(level) {
   } catch {
     $('#certView').innerHTML = '<p>證書製作失敗，請檢查網路後再試一次。</p>';
   }
+}
+
+// ───────── 第三段：島嶼閱讀挑戰 ─────────
+function showChallenge() {
+  const st = challenge.get();
+  if (st?.state === 'pass') chPassed(st);
+  else if (!ready()) chLocked();
+  else if (st?.state === 'play') chLevel();
+  else if (st?.state === 'fail') chFailed(st);
+  else chIntro();
+}
+
+function chLocked() {
+  const item = (ok, t, n) => `<li class="${ok ? 'ok' : ''}"><strong>${t}</strong><span>${n}</span></li>`;
+  openModal(`${dialogHead('第三段：尋河馬達人')}<div class="dialog-body">
+    <p>完成下面三件事，就能領「尋河馬達人」證書，到校長室兌換小客人招待券！</p>
+    <ol class="ch-need">${item(S.hippos.size === 12, '找齊 12 隻小河馬', `${S.hippos.size} / 12`)}${item(S.stamps.size === 12, '集滿 12 枚閱讀護照章', `${S.stamps.size} / 12`)}${item(false, '通過島嶼閱讀挑戰', `12 題答對 ${PASS} 題`)}</ol>
+    <p class="note">點一座島、打開島嶼介紹，就會蓋一枚章；還沒蓋的島在「閱讀護照」裡看得到。</p>
+    <div class="btn-row"><button class="cta moss" data-act="passport">看閱讀護照</button><button class="cta koi" data-act="modalClose">繼續尋寶</button></div></div>`);
+}
+
+// 領過證書就照證書上的年級出題，沒領過才請孩子自己選年級
+function chIntro() {
+  const info = certInfo.get();
+  const grade = info?.cls?.[0];
+  const pick = grade
+    ? `<p class="ch-band">${esc(info.cls)}的題目來自<b>${BANDS[bandOf(grade)]}</b>題庫</p><div class="btn-row"><button class="cta koi" data-act="chStart" data-band="${bandOf(grade)}">開始挑戰</button></div>`
+    : `<p class="ch-band">你是幾年級？小河馬會依年級出題</p><div class="ch-grades">${[...'一二三四五六'].map((g) => `<button class="cta lake" data-act="chStart" data-band="${bandOf(g)}">${g}年級</button>`).join('')}</div>`;
+  openModal(`${dialogHead('島嶼閱讀挑戰')}<div class="dialog-body">
+    <p>小河馬們在十二座島上等你！通過挑戰就能領「尋河馬達人」證書，到校長室兌換小客人招待券。</p>${rules}${pick}</div>`);
+}
+
+// 鏡頭飛到這一關的島，對話框靠邊放，孩子看得到小河馬住在哪裡
+function chLevel(shown = false) {
+  const st = challenge.get();
+  const k = shown ? st.picks.length - 1 : st.picks.length;
+  if (S.touring) stopTour();
+  if (S.walking) stopStroll();
+  if (S.listing) setList(false);
+  if (S.island) closeIsland();
+  if (!shown) world?.focusIsland(st.levels[k].i, true);
+  openModal(`${dialogHead('島嶼閱讀挑戰')}<div class="dialog-body ch">${levelHtml(st, k, shown)}</div>`, false, true);
+  // 手機上對錯說明常在畫面外，答完自動捲到說明和「下一關」
+  if (shown) $('.ch-fb')?.scrollIntoView({ block: 'nearest', behavior: calm ? 'auto' : 'smooth' });
+}
+
+function chPick(n) {
+  const st = challenge.get();
+  if (st?.state !== 'play') return;
+  const ok = answer(st, n);
+  challenge.set(st);
+  music.sfx(ok ? 'correct' : 'boing');
+  if (ok) world?.hippoFx.hop(st.levels[st.picks.length - 1].i, 0.55);
+  chLevel(true);
+}
+
+function chFailed(st) {
+  world?.clearFocus();
+  openModal(`${dialogHead('差一點點！')}<div class="dialog-body ch-end">
+    <p>這次闖了 <b>${st.picks.length}</b> 關，答對 <b>${st.picks.length - st.wrong}</b> 題。小河馬們幫你換了新題目，再挑戰一次吧！</p>
+    <div class="btn-row"><button class="cta koi" data-act="chStart" data-band="${st.band}">再挑戰一次</button><button class="cta lake" data-act="modalClose">先休息一下</button></div></div>`);
+}
+
+function chPassed(st) {
+  openModal(`${dialogHead('尋河馬達人')}<div class="dialog-body ch-end">
+    <p>你已經通過十二座島的閱讀挑戰，12 題答對 <b>${st.score}</b> 題！</p>
+    <p>領取證書後，帶到校長室兌換小客人招待券。</p>
+    <div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="M">領取證書</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
 }
 
 function showLog() {
@@ -872,8 +966,26 @@ const actions = {
   finaleClose() { closeFinale(); },
   finalePassport() { closeFinale(); showPassport(); },
   finaleAgain() { closeModal(); celebrate(); },
-  finaleCert(t) { closeFinale(); showCert(+t.dataset.level); },
-  certOpen(t) { showCert(+t.dataset.level); },
+  finaleCert(t) { closeFinale(); showCert(lvl(t.dataset.level)); },
+  certOpen(t) { showCert(lvl(t.dataset.level)); },
+  challenge() { closeFinale(); showChallenge(); },
+  async chStart(t) {
+    const prev = challenge.get();
+    t.disabled = true;
+    t.textContent = '小河馬準備題目中…';
+    const sheetItems = await loadBank();
+    challenge.set(newRun(t.dataset.band, sheetItems, prev?.levels?.map((l) => l.q) || []));
+    chLevel();
+  },
+  chNext() { chLevel(); },
+  chEnd() {
+    const st = challenge.get();
+    if (st.state !== 'pass') { chFailed(st); return; }
+    closeModal();
+    setHint();
+    world?.clearFocus();
+    celebrate('M', st.score);
+  },
   certCheck(t) {
     const grade = $('#certGrade').value;
     const room = $('#certRoom').value;
@@ -888,9 +1000,10 @@ const actions = {
       <div class="btn-row"><button class="cta koi" data-act="certIssue" data-level="${level}" data-cls="${esc(cls)}" data-name="${esc(name)}">確定，領取證書</button><button class="cta lake" data-act="certOpen" data-level="${level}">回去修改</button></div></div>`);
   },
   certIssue(t) {
-    issue(+t.dataset.level, t.dataset.cls, t.dataset.name);
+    const level = lvl(t.dataset.level);
+    issue(level, t.dataset.cls, t.dataset.name, level === 'M' ? challenge.get()?.score : 0);
     paintNext();
-    showCert(+t.dataset.level);
+    showCert(level);
   },
   certPrint() { if (certUrl) printCert(certUrl); },
   certReset() {
@@ -905,6 +1018,7 @@ const actions = {
     store.set('smes-mission-seen', false);
     store.set('smes-last-active', 0);
     certInfo.clear();
+    challenge.clear();
     location.reload();
   },
   lbClose() { lbZoom(false); $('#lb').classList.remove('open'); },
@@ -979,7 +1093,7 @@ document.addEventListener('click', (e) => {
   const t = e.target.closest('button,a');
   if (!t) { if (e.target.id === 'modal' && !$('#dialog').dataset.lock) closeModal(); if (e.target.id === 'lb') actions.lbClose(); return; }
   const d = t.dataset;
-  if (d.tab === undefined && d.quiz === undefined) music.sfx('tap');
+  if (d.tab === undefined && d.quiz === undefined && d.ch === undefined) music.sfx('tap');
   if (d.act !== undefined && d.act !== '' && actions[d.act]) { actions[d.act](t); return; }
   if (d.tab !== undefined) { setTab(+d.tab); return; }
   if (d.view) {
@@ -1005,6 +1119,7 @@ document.addEventListener('click', (e) => {
     $('.ilr-list').innerHTML = ilrRows(S.island, S.tab, +d.grade);
     return;
   }
+  if (d.ch !== undefined) { chPick(+d.ch); return; }
   if (d.quiz !== undefined) {
     music.sfx(+d.quiz + 1 >= QUIZ.length ? 'chime' : 'correct');
     const tally = JSON.parse($('#dialog').dataset.tally || '{}');
@@ -1072,12 +1187,12 @@ function paintSfx(on) {
   store.set('smes-sfx', on);
 }
 
-function celebrate() {
+function celebrate(level = 12, score = 0) {
   world.hippoFx.celebrate();
   music.sfx('cheer');
   music.sfx('chime');
-  if (!S.island) world.setView('home');
-  setTimeout(showFinale, calm ? 0 : 1500);
+  if (!S.island) { world.setView('home'); syncView('home'); }
+  setTimeout(() => showFinale(level, score), calm ? 0 : 1500);
 }
 
 function foundHippo(id, mesh) {

@@ -1,9 +1,15 @@
 // 小河馬證書領取名單：網站送來班級姓名，寫進這份試算表，校長室在「已領獎」打勾
+// 「題庫」分頁是第三段島嶼閱讀挑戰的題目，老師直接在試算表新增、修改或停用，網站會自動讀取
 const LIST = '領取名單';
 const STATS = '統計';
 const VIEW = '分類名單';
+const BANK = '題庫';
+const GUIDE = '出題說明';
 const HEAD = ['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '排序'];
-const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人' };
+const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人', M: '尋河馬達人' };
+const BANK_HEAD = ['停用', '年段', '島嶼', '情境（可空白）', '題目', '選項A', '選項B', '選項C', '選項D', '答案', '解說', '出題者'];
+const ANY = '不限';
+const BANK_TTL = 300;
 const NUM = '一二三四五六七八九十';
 const CLS = /^[一二三四五六]年[一二三四五六七八九十]班$/;
 const ALL = '全部';
@@ -75,8 +81,17 @@ function classFormula() {
 }
 
 // 分類名單：選年級、班級、證書、領獎狀態，名單照班級姓名排好，可直接列印
+function certPick(sh) {
+  sh.getRange('F2').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([ALL, ...Object.values(TITLES)], true).setAllowInvalid(false).build());
+}
+
 function setupView(ss) {
-  if (ss.getSheetByName(VIEW)) return;
+  const old = ss.getSheetByName(VIEW);
+  if (old) {
+    const rule = old.getRange('F2').getDataValidation();
+    if (!rule || !rule.getCriteriaValues()[0].includes(TITLES.M)) certPick(old);
+    return;
+  }
   const sh = ss.insertSheet(VIEW, 1);
   const q = `'${LIST}'`;
   const pick = (a1, rule) => sh.getRange(a1).setDataValidation(rule.setAllowInvalid(false).build());
@@ -84,7 +99,7 @@ function setupView(ss) {
   sh.getRange('A2:H2').setValues([['年級', ALL, '班級', ALL, '證書', ALL, '領獎', ALL]]);
   pick('B2', SpreadsheetApp.newDataValidation().requireValueInList([ALL, ...'一二三四五六'.split('').map((g) => `${g}年級`)], true));
   pick('D2', SpreadsheetApp.newDataValidation().requireValueInRange(sh.getRange('Z1:Z'), true));
-  pick('F2', SpreadsheetApp.newDataValidation().requireValueInList([ALL, ...Object.values(TITLES)], true));
+  certPick(sh);
   pick('H2', SpreadsheetApp.newDataValidation().requireValueInList([ALL, '尚未領獎', '已領獎'], true));
   sh.getRangeList(['B2', 'D2', 'F2', 'H2']).setBackground('#fff2a8').setFontWeight('bold');
   sh.getRangeList(['A2', 'C2', 'E2', 'G2']).setHorizontalAlignment('right');
@@ -106,24 +121,103 @@ function setupView(ss) {
   [90, 90, 110, 70, 140, 140, 170].forEach((w, i) => sh.setColumnWidth(i + 1, w));
 }
 
-function setupStats(ss) {
-  if (ss.getSheetByName(STATS)) return;
-  const sh = ss.insertSheet(STATS);
+// 三種證書各一欄（B～D），E 欄合計；舊版只有兩種證書，第一次執行時整塊重寫
+function statsTable(sh) {
   const q = `'${LIST}'`;
-  sh.getRange('A1:D1').setValues([['項目', '尋寶探險家', '尋寶小達人', '合計']]);
-  const rows = [['全校人次', `=COUNTIF(${q}!C:C,B1)`, `=COUNTIF(${q}!C:C,C1)`, '=B2+C2'],
-    ['已領獎', `=COUNTIFS(${q}!C:C,B1,${q}!F:F,TRUE)`, `=COUNTIFS(${q}!C:C,C1,${q}!F:F,TRUE)`, '=B3+C3'],
-    ['尚未領獎', '=B2-B3', '=C2-C3', '=B4+C4']];
+  const cols = ['B', 'C', 'D'];
+  const sum = (r) => `=${cols.map((c) => `${c}${r}`).join('+')}`;
+  const rows = [['全校人次', ...cols.map((c) => `=COUNTIF(${q}!C:C,${c}1)`), sum(2)],
+    ['已領獎', ...cols.map((c) => `=COUNTIFS(${q}!C:C,${c}1,${q}!F:F,TRUE)`), sum(3)],
+    ['尚未領獎', ...cols.map((c) => `=${c}2-${c}3`), sum(4)]];
   '一二三四五六'.split('').forEach((g, i) => {
-    const r = i + 5;
-    rows.push([`${g}年級`, `=COUNTIFS(${q}!D:D,"${g}年*",${q}!C:C,B1)`, `=COUNTIFS(${q}!D:D,"${g}年*",${q}!C:C,C1)`, `=B${r}+C${r}`]);
+    rows.push([`${g}年級`, ...cols.map((c) => `=COUNTIFS(${q}!D:D,"${g}年*",${q}!C:C,${c}1)`), sum(i + 5)]);
   });
-  sh.getRange(2, 1, rows.length, 4).setFormulas(rows.map((r) => r.map((c) => (String(c).startsWith('=') ? c : `="${c}"`))));
+  sh.getRange('A1:E10').clearContent();
+  sh.getRange('A1:E1').setValues([['項目', TITLES[6], TITLES[12], TITLES.M, '合計']]).setFontWeight('bold').setBackground('#f4e9d3');
+  sh.getRange(2, 1, rows.length, 5).setFormulas(rows.map((r) => r.map((c) => (String(c).startsWith('=') ? c : `="${c}"`))));
+}
+
+function setupStats(ss) {
+  const old = ss.getSheetByName(STATS);
+  if (old) {
+    if (old.getRange('D1').getValue() !== TITLES.M) statsTable(old);
+    return;
+  }
+  const sh = ss.insertSheet(STATS);
+  statsTable(sh);
   sh.getRange('F1').setValue('各班人次');
   sh.getRange('F2').setFormula(classFormula());
-  sh.getRange('A1:D1').setFontWeight('bold').setBackground('#f4e9d3');
   sh.getRange('F1').setFontWeight('bold');
   sh.setFrozenRows(1);
+}
+
+// 題庫第一次建立時放入網站內建的題目（gas/Seed.gs），之後都以試算表為準
+function setupBank(ss) {
+  if (ss.getSheetByName(BANK)) return;
+  const sh = ss.insertSheet(BANK);
+  sh.getRange(1, 1, 1, BANK_HEAD.length).setValues([BANK_HEAD]).setFontWeight('bold').setBackground('#efe3f4');
+  sh.setFrozenRows(1);
+  const names = Object.keys(ISLAND_IDS);
+  const rows = SEED.map((r) => ['', r[0], r[1], '', r[2], r[3], r[4], r[5], r[6], r[7], r[8], '內建題']);
+  sh.getRange(2, 1, rows.length, BANK_HEAD.length).setValues(rows);
+  // 停用欄只加勾選框的格式、不寫入值，空白就是使用中，老師往下新增題目時也不會被一整排假勾選擋住
+  const max = rows.length + 400;
+  const rule = (b) => sh.getRange(2, b.col, max, 1).setDataValidation(b.v.setAllowInvalid(false).build());
+  rule({ col: 1, v: SpreadsheetApp.newDataValidation().requireCheckbox() });
+  const list = (col, values) => rule({ col, v: SpreadsheetApp.newDataValidation().requireValueInList(values, true) });
+  list(2, ['低', '中', '高']);
+  list(3, [...names, ANY]);
+  list(10, ['A', 'B', 'C', 'D']);
+  sh.getRange(2, 2, max, 11).setNumberFormat('@');
+  sh.getRange(2, 4, max, 8).setWrap(true);
+  [48, 48, 110, 150, 300, 120, 120, 120, 120, 48, 260, 80].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.getRange('A1').setNote('打勾就停用這一題，網站不會再出這題；取消勾選就恢復使用');
+  sh.getRange('B1').setNote('低：一二年級　中：三四年級　高：五六年級');
+  sh.getRange('C1').setNote('這題出在哪一座島的關卡；選「不限」就可以出在任何一座島');
+  sh.getRange('J1').setNote('填正確答案是哪一個選項（A、B、C 或 D）。網站會自動打亂選項順序');
+  if (!ss.getSheetByName(GUIDE)) setupGuide(ss);
+}
+
+function setupGuide(ss) {
+  const sh = ss.insertSheet(GUIDE);
+  const lines = [
+    ['島嶼閱讀挑戰：出題說明'],
+    ['第三段「尋河馬達人」：找齊 12 隻小河馬、集滿 12 枚章後，十二座島各出一題，12 題答對 10 題才過關，可到校長室兌換小客人招待券。'],
+    ['每一列是一題，直接在「題庫」分頁最下面新增就可以，不用通知誰；網站大約 5～30 分鐘內就會用到新題目。'],
+    ['年段：低（一二年級）、中（三四年級）、高（五六年級）。孩子會依自己的年級拿到題目。'],
+    ['島嶼：這題出在哪座島的關卡，題目和島的主題相關最好；不知道放哪座島就選「不限」。'],
+    ['情境（可空白）：想給題目一段小故事時填，例如「小明到石門水庫走讀，看到……」。'],
+    ['選項：至少填 A、B 兩個；是非題可以 A 填「對」、B 填「錯」。答案欄填正確選項的字母。'],
+    ['同一座島、同一年段的題目越多，每次挑戰抽到的題目越不一樣，重新挑戰時也比較不會重複。'],
+    ['不想用的題目，在「停用」欄打勾就好，不要刪掉整列，之後取消勾選還能再用。'],
+    ['格式不完整的題目（例如沒有答案、選項少於兩個）網站會自動略過，不會出給孩子。'],
+  ];
+  sh.getRange(1, 1, lines.length, 1).setValues(lines).setWrap(true);
+  sh.getRange('A1').setFontWeight('bold').setFontSize(14);
+  sh.setColumnWidth(1, 760);
+}
+
+// 網站讀取題庫：只送出啟用、格式完整的題目；老師改題庫時清掉快取（onEdit）
+function bankItems() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('bank');
+  if (hit) return JSON.parse(hit);
+  const sh = SpreadsheetApp.getActive().getSheetByName(BANK);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const items = [];
+  sh.getRange(2, 1, sh.getLastRow() - 1, BANK_HEAD.length).getDisplayValues().forEach((r) => {
+    const [off, b, isle, c, q, ...rest] = r;
+    const letters = rest.slice(0, 4);
+    const ans = 'ABCD'.indexOf(String(rest[4]).trim().toUpperCase());
+    const i = isle === ANY ? '*' : ISLAND_IDS[isle];
+    if (off === 'TRUE' || !'低中高'.includes(b) || !b || !i || !q.trim() || ans < 0 || !String(letters[ans]).trim()) return;
+    const kept = letters.map((t, k) => [String(t).trim(), k]).filter(([t]) => t);
+    if (kept.length < 2) return;
+    items.push({ b, i, c: c.trim(), q: q.trim(), o: kept.map(([t]) => t), a: kept.findIndex(([, k]) => k === ans), x: String(rest[5]).trim() });
+  });
+  const text = JSON.stringify(items);
+  if (text.length < 90000) cache.put('bank', text, BANK_TTL);
+  return items;
 }
 
 function setup() {
@@ -132,9 +226,11 @@ function setup() {
   setupList(ss);
   setupStats(ss);
   setupView(ss);
+  setupBank(ss);
 }
 
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.bank) return json({ ok: true, items: bankItems() });
   setup();
   return json({ ok: true });
 }
@@ -150,7 +246,7 @@ function overLimit() {
 function doPost(e) {
   let d;
   try { d = JSON.parse(e.postData.contents); } catch (err) { return json({ ok: false, error: 'bad' }); }
-  const level = Number(d.level);
+  const level = String(d.level);
   const cls = String(d.cls || '');
   const name = String(d.name || '');
   const date = String(d.date || '');
@@ -180,9 +276,10 @@ function doPost(e) {
   }
 }
 
-// 校長室打勾時自動記下領獎時間，取消勾選就清掉
+// 校長室打勾時自動記下領獎時間，取消勾選就清掉；老師改題庫時，讓網站下次讀到新題目
 function onEdit(e) {
   const r = e.range;
+  if (r.getSheet().getName() === BANK) { CacheService.getScriptCache().remove('bank'); return; }
   if (r.getSheet().getName() !== LIST || r.getColumn() !== 6 || r.getRow() < 2 || r.getNumRows() > 1) return;
   const cell = r.getSheet().getRange(r.getRow(), 7);
   if (r.getValue() === true) cell.setValue(new Date()).setNumberFormat(STAMP);
@@ -198,7 +295,7 @@ function onOpen() {
     .addItem('只看尚未領獎', 'showPending')
     .addItem('只看已領獎', 'showDone')
     .addSubMenu(grade)
-    .addSubMenu(ui.createMenu('依證書').addItem(TITLES[6], 'cert6').addItem(TITLES[12], 'cert12'))
+    .addSubMenu(ui.createMenu('依證書').addItem(TITLES[6], 'cert6').addItem(TITLES[12], 'cert12').addItem(TITLES.M, 'certM'))
     .addItem('顯示全部（清除篩選）', 'showAll')
     .addSeparator()
     .addItem('依班級排序', 'sortByClass')
@@ -233,6 +330,7 @@ function showPending() { setCrit(6, checked('=$F2<>TRUE'), '只顯示尚未領�
 function showDone() { setCrit(6, checked('=$F2=TRUE'), '只顯示已領獎'); }
 function cert6() { setCrit(3, textIs(TITLES[6]), `只顯示${TITLES[6]}`); }
 function cert12() { setCrit(3, textIs(TITLES[12]), `只顯示${TITLES[12]}`); }
+function certM() { setCrit(3, textIs(TITLES.M), `只顯示${TITLES.M}`); }
 function grade1() { byGrade(1); }
 function grade2() { byGrade(2); }
 function grade3() { byGrade(3); }
