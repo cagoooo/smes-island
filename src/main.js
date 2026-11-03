@@ -543,16 +543,16 @@ function showQuiz(i = 0, tally = {}) {
   $('#dialog').dataset.tally = JSON.stringify(tally);
 }
 
-const STORM_TITLE = { typhoon: '颱風來襲中', closure: '桃園市停班停課', gale: '強風豪雨警戒', preview: '颱風模式預覽' };
+const STORM_TITLE = { typhoon: '颱風來襲中', land: '陸上颱風警報', sea: '颱風警報發布中', closure: '桃園市停班停課', gale: '強風豪雨警戒', preview: '颱風模式預覽' };
 const liveStorm = () => (S.weather ? stormState(S.weather, S.alert) : null);
 
 // 依目前狀態切換颱風場景與提示；預覽時不看真實資料
 function paintStorm() {
-  const st = S.time === 'typhoon' ? { kind: 'preview' } : S.time === 'live' ? liveStorm() : null;
+  const st = S.time === 'typhoon' ? { kind: 'preview', scene: true } : S.time === 'live' ? liveStorm() : null;
   $('#stormChip').hidden = !st;
   if (st) $('#stormTitle').textContent = `🌀 ${STORM_TITLE[st.kind]}`;
-  if (S.time === 'live' && S.weather) world?.setWeather({ storm: !!st });
-  if (st && S.walking) { stopStroll(true); toast('風雨太大，大家都進屋了，等天氣好再來逛島吧'); }
+  if (S.time === 'live' && S.weather) world?.setWeather({ storm: !!st?.scene });
+  if (st?.scene && S.walking) { stopStroll(true); toast('風雨太大，大家都進屋了，等天氣好再來逛島吧'); }
 }
 
 function showStorm() {
@@ -563,6 +563,8 @@ function showStorm() {
     gale: `學校附近陣風每小時約 ${Math.round(st.gust)} 公里，正在下雨，外出要小心。`,
     typhoon: `桃園市：${st.info}`,
     closure: `桃園市：${st.info}`,
+    land: `中央氣象署：${st.info}${st.name ? `（${st.name}）` : ''}`,
+    sea: `中央氣象署：${st.info}${st.name ? `（${st.name}）` : ''}。學校附近目前不一定有風雨，請留意最新消息。`,
   }[st.kind];
   openModal(`${dialogHead('防颱小叮嚀')}<div class="dialog-body">
     <p class="storm-now">${esc(now)}</p>
@@ -574,7 +576,7 @@ function showStorm() {
       <li>待在家的時間，正好讀一本喜歡的書</li>
     </ul>
     <div class="btn-row"><a class="cta lake" href="https://www.cwa.gov.tw/V8/C/P/Typhoon/TY_NEWS.html" target="_blank" rel="noopener">氣象署颱風消息</a><a class="cta moss" href="https://www.dgpa.gov.tw/typh/daily/nds.html" target="_blank" rel="noopener">停班停課查詢</a></div>
-    <p class="note" style="margin-top:10px">風雨資料來自 Open-Meteo，是依學校位置估算；停班停課資料來自行政院人事行政總處，更新可能有延遲，請以官方公告為準。</p></div>`);
+    <p class="note" style="margin-top:10px">颱風警報來自中央氣象署開放資料，風雨資料來自 Open-Meteo，是依學校位置估算；停班停課資料來自行政院人事行政總處。更新可能有延遲，請以官方公告為準。</p></div>`);
 }
 
 function showMission() {
@@ -737,7 +739,7 @@ async function loadLive() {
       S.weather = w;
       paintWeather();
       world?.setSun({ sunrise: w.sunrise, sunset: w.sunset });
-      if (S.time === 'live') world?.setWeather({ cloud: w.cloud, rain: w.rain, wind: w.wind, thunder: w.thunder, storm: !!liveStorm() });
+      if (S.time === 'live') world?.setWeather({ cloud: w.cloud, rain: w.rain, wind: w.wind, thunder: w.thunder, storm: !!liveStorm()?.scene });
       paintStorm();
     }, () => { if (!S.weather) $('#wx').innerHTML = '<i>⛅</i><div><strong>天氣暫時無法取得</strong><span>龍潭石門</span></div>'; }),
     safe(fetchAir, (a) => { S.air = a; paintWeather(); }),
@@ -804,7 +806,7 @@ const actions = {
     else if (S.time === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8, storm: false });
     else if (S.time === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0, storm: false });
     else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0, storm: false });
-    else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain, storm: !!liveStorm() });
+    else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain, storm: !!liveStorm()?.scene });
     paintStorm();
     if (S.time === 'typhoon') toast('颱風來了！雲海下的颱風正在旋轉，大家都躲進屋裡了');
     if (S.time === 'rain') toast('下雨了！孩子們撐傘踩水窪，魚兒開心得跳出水面');

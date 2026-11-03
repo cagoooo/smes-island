@@ -21,6 +21,8 @@ jobs:
       - run: node scripts/fetch-news.mjs /tmp/news.json
       - run: node scripts/fetch-alert.mjs /tmp/alert.json
         continue-on-error: true
+        env:
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
       - name: 寫入 live-data 分支
         run: |
           git config user.name "github-actions[bot]"
@@ -31,7 +33,7 @@ jobs:
             git checkout --orphan live-data
             git rm -rf . >/dev/null
           fi
-          # 只比對內容，時間戳記改變不算更新；公告停班停課期間每次都寫入，讓網站知道資料還是新的
+          # 只比對內容，時間戳記改變不算更新；有警報或停班停課期間每次都寫入，讓網站知道資料還是新的
           changed=0
           same() { [ -f "$2" ] && [ "$(node -p "JSON.stringify(require('./$2').$3)")" = "$(node -p "JSON.stringify(require('$1').$3)")" ]; }
           if ! same /tmp/news.json news.json items; then
@@ -40,7 +42,7 @@ jobs:
             changed=1
           fi
           if [ -f /tmp/alert.json ]; then
-            if ! same /tmp/alert.json alert.json info || [ "$(node -p "require('/tmp/alert.json').info ? 1 : 0")" = 1 ]; then
+            if ! same /tmp/alert.json alert.json info || ! same /tmp/alert.json alert.json warning || [ "$(node -p "const a = require('/tmp/alert.json'); a.info || a.warning ? 1 : 0")" = 1 ]; then
               cp /tmp/alert.json alert.json
               git add alert.json
               changed=1

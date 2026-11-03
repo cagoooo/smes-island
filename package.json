@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.14.0",
-  "releaseNotes": "颱風模式登場！颱風天群島會變天，還有防颱小叮嚀，工具列切到「颱風」就能預覽",
+  "version": "1.15.0",
+  "releaseNotes": "接上中央氣象署颱風警報，陸上警報涵蓋桃園時群島會自動進入颱風模式",
   "type": "module",
   "scripts": {
     "dev": "vite",

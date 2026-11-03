@@ -41,12 +41,15 @@ export async function fetchAlert() {
   return Date.now() - new Date(d.updated).getTime() < ALERT_MAX_AGE ? d : null;
 }
 
-// 陣風達 8 級（62 km/h）又在下雨，或桃園市公告停班停課，就進入颱風應變
+// 桃園在陸上颱風警報內、公告停班停課，或陣風達 8 級（62 km/h）又在下雨，就進入颱風應變
+// 其他有效的颱風警報只提醒，不改場景：這時學校可能還是好天氣，孩子也照常上課
 const STORM_GUST = 62;
 const STORM_RAIN = 0.5;
 export function stormState(w, alert) {
-  if (alert?.closed || alert?.tomorrow) return { kind: alert.typhoon ? 'typhoon' : 'closure', info: alert.info, gust: w?.gust };
-  if (w && w.gust >= STORM_GUST && w.rain >= STORM_RAIN) return { kind: 'gale', gust: w.gust };
+  if (alert?.closed || alert?.tomorrow) return { kind: alert.typhoon || alert.warning ? 'typhoon' : 'closure', info: alert.info, scene: true };
+  if (alert?.warning === 'land') return { kind: 'land', info: alert.headline, name: alert.name, scene: true };
+  if (w && w.gust >= STORM_GUST && w.rain >= STORM_RAIN) return { kind: 'gale', gust: w.gust, scene: true };
+  if (alert?.warning === 'sea') return { kind: 'sea', info: alert.headline, name: alert.name, scene: false };
   return null;
 }
 
