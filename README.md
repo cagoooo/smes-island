@@ -10,7 +10,8 @@
 - 登島人次：`src/ui/visits.js` 透過 Firestore 累計，專案 `smes-brand-island`（個人帳號 cagooo@gmail.com），規則在 `firestore.rules`，只允許讀取與加 1；金鑰放 `.env` 與 GitHub Secrets
 - 魚：`src/world/life.js` 控制天空的雲魚與小魚群，`src/world/rain-fish.js` 控制島上水池的魚、雨圈與水花，下雨時動作都會變得更活潑
 - 小河馬：`src/world/hippo-fx.js` 負責場景特效，`src/ui/hippo.js` 負責卡片、圖鑑與集滿慶祝，名字與台詞在 `src/data/site.js` 的 `HIPPOS`
-- 尋寶證書與閱讀挑戰：找到 6 隻「尋寶探險家」、12 隻「尋寶小達人」；第三段「尋河馬達人」要集滿 12 枚章，再通過十二座島各一題的閱讀挑戰（12 題答對 10 題，`src/ui/challenge.js`），到校長室兌換小客人招待券。題目以學校試算表的「題庫」分頁為準（老師可自行新增、停用，說明在「出題說明」分頁），網站透過 `gas/Code.gs` 讀取，連不上時用 `src/data/challenge.js` 的內建題；改內建題後執行 `node scripts/make-seed-gs.mjs` 更新 `gas/Seed.gs`
+- 尋寶證書與閱讀挑戰：找到 6 隻「尋寶探險家」、12 隻「尋寶小達人」；第三段「尋河馬達人」要集滿 12 枚章，再通過十二座島各一題的閱讀挑戰（12 題答對 10 題，`src/ui/challenge.js`），到校長室兌換小客人招待券。題目以學校試算表的「題庫」分頁為準（老師可自行新增、停用，說明在「出題說明」分頁），網站透過 `gas/Code.gs` 讀取，連不上時用 `src/data/challenge.js` 的內建題；改內建題後執行 `node scripts/make-seed-gs.mjs` 更新 `gas/Seed.gs`。第四段「AI科技島」目前只在證書頁預告（高年級專題發表、中低年級觀賞），尚未開放
+- 試算表後端：`gas/Code.gs` 負責領證書名單、統計與題庫，改完用 clasp 以學校帳號推送，並更新原本的部署（`update-deployment`），網站呼叫的 `/exec` 網址才不會變
 - 聲音：`src/ui/sound.js` 依天氣與日夜切換配樂與環境音，互動音效用 Web Audio 播放；音檔都在 `public/audio/`，來自 [Pixabay](https://pixabay.com/)，採 Pixabay Content License
   - 配樂：白天 The Wind Awakening Memories of the Forest、夜晚 The Floating Garden of Stars (Dreamy Edit)（CHAse9602，上架者標示為 AI 生成）；陰天 Warm Acoustic（AtlasAudio）；雨天 A rainy day（Tomomi_Kato）；黃昏 Sundowners（MonkeyBandito，Pixabay）；颱風環境音 Strong Wind And Thunder Loop（Fletchpike，Pixabay）。
   - 環境音：Gentle Rain 07（DRAGON-STUDIO）、Night cricket ambience、birds in the morning（freesound_community）
