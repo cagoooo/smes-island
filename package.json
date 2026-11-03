@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.16.0",
-  "releaseNotes": "掃碼登島！用 iPad 相機掃 QR Code，就能快速進入群島或直接登上指定的島",
+  "version": "1.16.1",
+  "releaseNotes": "按下跨域串聯會自動回到整個群島，連線一次看完整",
   "type": "module",
   "scripts": {
     "dev": "vite",

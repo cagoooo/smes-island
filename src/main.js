@@ -693,6 +693,18 @@ function showHonors() {
     <p class="note" style="margin-top:10px">內容取自「鱻鯉鰭源，石門活閱」品牌學校方案。</p></div>`, true);
 }
 
+// 連線橫跨各島，要退回看得到全部島嶼的鏡頭才看得完整；已經在鳥瞰就不用換
+function showWholeGroup() {
+  const view = world?.viewName === 'top' ? 'top' : 'home';
+  if (S.touring) stopTour();
+  if (S.walking) stopStroll();
+  if (S.listing) setList(false);
+  if (S.island) closeIsland();
+  world?.clearFocus();
+  world?.setView(view);
+  syncView(view);
+}
+
 function showLinksInfo() {
   openModal(`${dialogHead('跨域串聯')}<div class="dialog-body"><p>金色虛線把彼此合作、能互相延伸的島嶼連起來。</p>
     ${LINKS.map((l) => `<div class="news-item"><small>${esc(byId[l.a].name)} ↔ ${esc(byId[l.b].name)}</small><strong>${esc(l.text)}</strong></div>`).join('')}
@@ -808,7 +820,13 @@ const actions = {
   music() { music.toggle(); },
   sfx() { music.toggleSfx(); },
   labels(el) { S.labels = !S.labels; el.classList.toggle('on', S.labels); $('#labels').classList.toggle('hidden', !S.labels); },
-  arcs(el) { S.arcs = !S.arcs; el.classList.toggle('on', S.arcs); world?.showArcs(S.arcs); if (S.arcs) showLinksInfo(); },
+  arcs(el) {
+    S.arcs = !S.arcs;
+    el.classList.toggle('on', S.arcs);
+    if (S.arcs) showWholeGroup();
+    world?.showArcs(S.arcs);
+    if (S.arcs) showLinksInfo();
+  },
   pause(el) { S.paused = !S.paused; el.textContent = S.paused ? '播放' : '暫停'; world?.setPaused(S.paused); },
   time(el) {
     const seq = [['live', '即時'], ['day', '白天'], ['cloudy', '陰天'], ['rain', '雨天'], ['typhoon', '颱風'], ['dusk', '黃昏'], ['night', '夜晚']];
