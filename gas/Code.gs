@@ -5,6 +5,9 @@ const STATS = '統計';
 const VIEW = '分類名單';
 const BANK = '題庫';
 const GUIDE = '出題說明';
+const OVERVIEW = '題庫總覽';
+const CHECK = '檢查';
+const OK = '✔ 會出題';
 const HEAD = ['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '排序'];
 const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人', M: '尋河馬達人' };
 const BANK_HEAD = ['停用', '年段', '島嶼', '情境（可空白）', '題目', '選項A', '選項B', '選項C', '選項D', '答案', '解說', '出題者'];
@@ -14,6 +17,23 @@ const NUM = '一二三四五六七八九十';
 const CLS = /^[一二三四五六]年[一二三四五六七八九十]班$/;
 const ALL = '全部';
 const STAMP = 'yyyy/MM/dd HH:mm';
+// 題庫總覽列給出題老師參考的方向，整理自網站內建題
+const THEMES = {
+  鱻鯉主島: '學校與家鄉、文字小知識、樹木',
+  魚游書海島: '語文、成語、標點、閱讀習慣',
+  無涯學海島: '自然科學、天文現象、實驗方法',
+  石門魚鄉島: '水資源、石門水庫、河川生態',
+  無邊視界島: '網路安全、資訊素養、平板使用',
+  大河馬書房島: '圖書館禮儀、書的結構、圖書分類',
+  領航燈塔島: '方位、地圖、航海與燈塔',
+  共備工坊島: '合作、工具、齒輪與簡單機械',
+  星光展能島: '星星、太陽系、天文',
+  童書之森島: '植物、昆蟲、生態與食物鏈',
+  風信飛艇島: '天氣、風、飛行與空氣品質',
+  曙光未來島: '時間、曆法、能源與未來',
+};
+const LIST_TAB = '#c9a46a';
+const BANK_TAB = '#9b6bb3';
 
 // 國字直接排序會變成一、三、二……，另外存數字排序碼：一年二班 → 102
 function clsKey(cls) {
@@ -153,48 +173,161 @@ function setupStats(ss) {
 
 // 題庫第一次建立時放入網站內建的題目（gas/Seed.gs），之後都以試算表為準
 function setupBank(ss) {
-  if (ss.getSheetByName(BANK)) return;
-  const sh = ss.insertSheet(BANK);
-  sh.getRange(1, 1, 1, BANK_HEAD.length).setValues([BANK_HEAD]).setFontWeight('bold').setBackground('#efe3f4');
-  sh.setFrozenRows(1);
-  const names = Object.keys(ISLAND_IDS);
-  const rows = SEED.map((r) => ['', r[0], r[1], '', r[2], r[3], r[4], r[5], r[6], r[7], r[8], '內建題']);
-  sh.getRange(2, 1, rows.length, BANK_HEAD.length).setValues(rows);
-  // 停用欄只加勾選框的格式、不寫入值，空白就是使用中，老師往下新增題目時也不會被一整排假勾選擋住
-  const max = rows.length + 400;
-  const rule = (b) => sh.getRange(2, b.col, max, 1).setDataValidation(b.v.setAllowInvalid(false).build());
-  rule({ col: 1, v: SpreadsheetApp.newDataValidation().requireCheckbox() });
-  const list = (col, values) => rule({ col, v: SpreadsheetApp.newDataValidation().requireValueInList(values, true) });
-  list(2, ['低', '中', '高']);
-  list(3, [...names, ANY]);
-  list(10, ['A', 'B', 'C', 'D']);
+  let sh = ss.getSheetByName(BANK);
+  if (!sh) {
+    sh = ss.insertSheet(BANK);
+    sh.getRange(1, 1, 1, BANK_HEAD.length).setValues([BANK_HEAD]);
+    sh.setFrozenRows(1);
+    const rows = SEED.map((r) => ['', r[0], r[1], '', r[2], r[3], r[4], r[5], r[6], r[7], r[8], '內建題']);
+    sh.getRange(2, 1, rows.length, BANK_HEAD.length).setValues(rows);
+    [48, 48, 110, 150, 300, 120, 120, 120, 120, 48, 260, 80].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+    sh.getRange('A1').setNote('打勾就停用這一題，網站不會再出這題；取消勾選就恢復使用');
+    sh.getRange('B1').setNote('低：一二年級　中：三四年級　高：五六年級');
+    sh.getRange('C1').setNote('這題出在哪一座島的關卡；選「不限」就可以出在任何一座島');
+    sh.getRange('J1').setNote('填正確答案是哪一個選項（A、B、C 或 D）。網站會自動打亂選項順序');
+  }
+  if (sh.getRange(1, 13).getValue() !== CHECK) {
+    upgradeBank(sh);
+    setupGuide(ss);
+  }
+}
+
+// 檢查欄：照網站讀題的規則逐列判斷，老師寫完就知道這題會不會出給孩子
+function checkFormula() {
+  const isles = [...Object.keys(ISLAND_IDS), ANY].map((n) => `"${n}"`).join(';');
+  return `={"${CHECK}";MAP(A2:A,B2:B,C2:C,E2:E,F2:F,G2:G,H2:H,I2:I,J2:J,LAMBDA(off,band,isle,ques,opa,opb,opc,opd,ans,`
+    + `LET(cnt,(TRIM(opa)<>"")+(TRIM(opb)<>"")+(TRIM(opc)<>"")+(TRIM(opd)<>""),pos,MATCH(UPPER(TRIM(ans)),{"A";"B";"C";"D"},0),`
+    + `IF(LEN(band&isle&ques&opa&opb&ans)=0,"",IF(off=TRUE,"停用",`
+    + `IF(ISNA(MATCH(band,{"低";"中";"高"},0)),"⚠ 年段請選 低、中、高",`
+    + `IF(ISNA(MATCH(isle,{${isles}},0)),"⚠ 請選島嶼",`
+    + `IF(TRIM(ques)="","⚠ 缺題目",IF(cnt<2,"⚠ 選項至少要兩個",IF(ISNA(pos),"⚠ 答案請填 A～D",`
+    + `IF(TRIM(CHOOSE(pos,opa,opb,opc,opd))="","⚠ 答案指到空白選項","${OK}")))))))))))}`;
+}
+
+// 下拉選單、格式延伸到整欄，加上檢查欄、篩選鈕與顏色；舊題庫也一併補齊（只做一次）
+function upgradeBank(sh) {
+  const max = sh.getMaxRows() - 1;
+  const col = (c) => sh.getRange(2, c, max, 1);
+  const pick = (c, rule) => col(c).setDataValidation(rule.setAllowInvalid(false).build());
+  // 停用欄只加勾選框的格式、不寫入值，空白就是使用中
+  pick(1, SpreadsheetApp.newDataValidation().requireCheckbox());
+  pick(2, SpreadsheetApp.newDataValidation().requireValueInList(['低', '中', '高'], true));
+  pick(3, SpreadsheetApp.newDataValidation().requireValueInList([...Object.keys(ISLAND_IDS), ANY], true));
+  pick(10, SpreadsheetApp.newDataValidation().requireValueInList(['A', 'B', 'C', 'D'], true));
   sh.getRange(2, 2, max, 11).setNumberFormat('@');
   sh.getRange(2, 4, max, 8).setWrap(true);
-  [48, 48, 110, 150, 300, 120, 120, 120, 120, 48, 260, 80].forEach((w, i) => sh.setColumnWidth(i + 1, w));
-  sh.getRange('A1').setNote('打勾就停用這一題，網站不會再出這題；取消勾選就恢復使用');
-  sh.getRange('B1').setNote('低：一二年級　中：三四年級　高：五六年級');
-  sh.getRange('C1').setNote('這題出在哪一座島的關卡；選「不限」就可以出在任何一座島');
-  sh.getRange('J1').setNote('填正確答案是哪一個選項（A、B、C 或 D）。網站會自動打亂選項順序');
-  if (!ss.getSheetByName(GUIDE)) setupGuide(ss);
+  sh.getRange(2, 1, max, 13).setVerticalAlignment('top');
+  sh.getRange(2, 10, max, 1).setHorizontalAlignment('center');
+  sh.getRange(1, 13).setFormula(checkFormula());
+  sh.getRange('M1').setNote('自動檢查，不用填。「⚠」開頭的題目網站會略過，照提示補好就會出題');
+  sh.getRange(1, 1, 1, 13).setFontWeight('bold').setBackground('#efe3f4').setVerticalAlignment('middle');
+  sh.setColumnWidth(13, 160);
+  sh.setFrozenColumns(3);
+  if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), 13).createFilter();
+  const all = sh.getRange(2, 1, max, 13);
+  const band = sh.getRange(2, 2, max, 1);
+  const when = (f, range) => SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setRanges([range]);
+  sh.setConditionalFormatRules([
+    when('=$A2=TRUE', all).setFontColor('#9a9a9a').setStrikethrough(true).setBackground('#f1f1f1').build(),
+    when('=LEFT($M2,1)="⚠"', all).setBackground('#fbe0da').build(),
+    when('=$B2="低"', band).setBackground('#e2f1dc').build(),
+    when('=$B2="中"', band).setBackground('#dde9f7').build(),
+    when('=$B2="高"', band).setBackground('#fbe5cf').build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextStartsWith('✔').setFontColor('#2e7d32').setRanges([sh.getRange(2, 13, max, 1)]).build(),
+  ]);
 }
 
 function setupGuide(ss) {
-  const sh = ss.insertSheet(GUIDE);
+  const sh = ss.getSheetByName(GUIDE) || ss.insertSheet(GUIDE);
   const lines = [
     ['島嶼閱讀挑戰：出題說明'],
     ['第三段「尋河馬達人」：找齊 12 隻小河馬、集滿 12 枚章後，十二座島各出一題，12 題答對 10 題才過關，可到校長室兌換小客人招待券。'],
-    ['每一列是一題，直接在「題庫」分頁最下面新增就可以，不用通知誰；網站大約 5～30 分鐘內就會用到新題目。'],
-    ['年段：低（一二年級）、中（三四年級）、高（五六年級）。孩子會依自己的年級拿到題目。'],
-    ['島嶼：這題出在哪座島的關卡，題目和島的主題相關最好；不知道放哪座島就選「不限」。'],
-    ['情境（可空白）：想給題目一段小故事時填，例如「小明到石門水庫走讀，看到……」。'],
-    ['選項：至少填 A、B 兩個；是非題可以 A 填「對」、B 填「錯」。答案欄填正確選項的字母。'],
-    ['同一座島、同一年段的題目越多，每次挑戰抽到的題目越不一樣，重新挑戰時也比較不會重複。'],
+    ['① 先看「題庫總覽」：哪座島、哪個年段的題目還少，一眼就看得到（紅色 0 題、黃色 1～2 題），各島的出題方向也列在那裡。每格建議至少 3 題。'],
+    ['② 到「題庫」分頁，接在最後一題的下一列往下填，一列一題，不用通知誰；網站大約 5～30 分鐘內就會用到新題目。'],
+    ['　年段：低（一二年級）、中（三四年級）、高（五六年級）。孩子會依自己的年級拿到題目。'],
+    ['　島嶼：這題出在哪座島的關卡，題目和島的主題相關最好；不知道放哪座島就選「不限」。'],
+    ['　情境（可空白）：想給題目一段小故事時填，例如「小明到石門水庫走讀，看到……」。'],
+    ['　選項：至少填 A、B 兩個；是非題可以 A 填「對」、B 填「錯」。答案欄填正確選項的字母，網站會自動打亂選項順序。'],
+    ['③ 寫完看最右邊的「檢查」欄：出現「✔ 會出題」就完成了；「⚠」開頭的代表網站會略過這題，照提示補好就好。'],
+    ['找題目：題庫第一列有篩選鈕，可以只看某座島、某個年段，或在「檢查」欄只看有「⚠」的題目。'],
     ['不想用的題目，在「停用」欄打勾就好，不要刪掉整列，之後取消勾選還能再用。'],
-    ['格式不完整的題目（例如沒有答案、選項少於兩個）網站會自動略過，不會出給孩子。'],
+    ['「領取名單」「分類名單」「統計」三個分頁是校長室發獎用的，只有資訊組能修改。'],
   ];
-  sh.getRange(1, 1, lines.length, 1).setValues(lines).setWrap(true);
+  sh.clear();
+  sh.getRange(1, 1, lines.length, 1).setValues(lines).setWrap(true).setVerticalAlignment('middle');
   sh.getRange('A1').setFontWeight('bold').setFontSize(14);
+  sh.getRangeList(['A3', 'A4', 'A9']).setFontWeight('bold');
   sh.setColumnWidth(1, 760);
+  sh.setRowHeights(2, lines.length - 1, 30);
+}
+
+// 題庫總覽：每座島、每個年段目前會出的題目數，讓出題老師知道哪裡還缺題
+function setupOverview(ss) {
+  const old = ss.getSheetByName(OVERVIEW);
+  if (old && old.getFrozenRows() === 4) return false; // 最後一步才凍結標題列，沒凍結代表上次沒做完，整頁重做
+  const sh = old ? old.clear() : ss.insertSheet(OVERVIEW);
+  const q = `'${BANK}'`;
+  const names = [...Object.keys(ISLAND_IDS), ANY];
+  const rows = names.map((n, i) => {
+    const r = i + 5;
+    return [n, THEMES[n] || '任何一座島都可以出的題目，某座島題目不夠時拿來補',
+      ...['低', '中', '高'].map((b) => `=COUNTIFS(${q}!$C:$C,$A${r},${q}!$B:$B,"${b}",${q}!$M:$M,"${OK}")`), `=SUM(C${r}:E${r})`];
+  });
+  const end = names.length + 4;
+  const total = end + 1;
+  rows.push(['合計', '', ...['C', 'D', 'E', 'F'].map((c) => `=SUM(${c}5:${c}${end})`)]);
+  sh.getRange('A1').setValue('題庫總覽：每座島、每個年段目前會出的題目數（自動計算，不用填）').setFontWeight('bold').setFontSize(13);
+  sh.getRange('A2').setValue('每格建議至少 3 題，重新挑戰時比較不會抽到一樣的題目。紅色是 0 題、黃色是 1～2 題；某格不夠時，網站會先用「不限」的題目補上。');
+  sh.getRange('A4:F4').setValues([['島嶼', '出題方向（參考）', '低（一二年級）', '中（三四年級）', '高（五六年級）', '合計']])
+    .setFontWeight('bold').setBackground('#efe3f4');
+  sh.getRange(5, 1, rows.length, 6).setValues(rows);
+  sh.getRange(total, 1, 1, 6).setFontWeight('bold').setBackground('#f6f0f8');
+  sh.getRange(total + 2, 1, 2, 3).setValues([
+    ['停用的題目', '', `=COUNTIF(${q}!M:M,"停用")`],
+    ['要修正的題目（⚠）', '到「題庫」分頁，在「檢查」欄篩選就找得到', `=COUNTIF(${q}!M:M,"⚠*")`],
+  ]);
+  sh.getRange(4, 3, total - 3, 4).setHorizontalAlignment('center');
+  sh.getRange(total + 2, 3, 2, 1).setHorizontalAlignment('center');
+  const cells = sh.getRange(5, 3, names.length, 3);
+  const rule = () => SpreadsheetApp.newConditionalFormatRule().setRanges([cells]);
+  sh.setConditionalFormatRules([
+    rule().whenNumberEqualTo(0).setBackground('#f6c9c0').build(),
+    rule().whenNumberBetween(1, 2).setBackground('#fff0a8').build(),
+    rule().whenNumberGreaterThanOrEqualTo(3).setBackground('#d9eed4').build(),
+    SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0).setBackground('#fbe0da').setBold(true).setRanges([sh.getRange(total + 3, 3)]).build(),
+  ]);
+  [120, 270, 110, 110, 110, 70].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setFrozenRows(4);
+  return true;
+}
+
+// 分頁照用途排好、上色：前三個是校長室發獎用，後三個是出題用
+function arrangeTabs(ss) {
+  [[LIST, LIST_TAB], [VIEW, LIST_TAB], [STATS, LIST_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB]].forEach(([name, color], i) => {
+    const sh = ss.getSheetByName(name);
+    if (!sh) return;
+    sh.setTabColor(color);
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(i + 1);
+  });
+  ss.setActiveSheet(ss.getSheetByName(LIST));
+}
+
+// 名單和統計是發獎資料，只有試算表擁有者（資訊組）能改；已領獎、領獎時間兩欄留著，之後校長室加入編輯也能打勾
+// 題庫標題列改到時跳出提醒，避免欄位被打亂
+function guard(ss) {
+  [[LIST, ['F2:G']], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []]].forEach(([name, open]) => {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) return;
+    const p = sh.protect().setDescription('發獎資料，只有資訊組能修改');
+    if (open.length) p.setUnprotectedRanges(open.map((a) => sh.getRange(a)));
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+  });
+  const bank = ss.getSheetByName(BANK);
+  if (bank && !bank.getProtections(SpreadsheetApp.ProtectionType.RANGE).length) {
+    bank.getRange(1, 1, 1, 13).protect().setDescription('題庫標題列，改了網站會讀不到題目').setWarningOnly(true);
+  }
 }
 
 // 網站讀取題庫：只送出啟用、格式完整的題目；老師改題庫時清掉快取（onEdit）
@@ -227,6 +360,13 @@ function setup() {
   setupStats(ss);
   setupView(ss);
   setupBank(ss);
+  // 總覽、分頁排序與保護只是方便使用，出錯也不能擋住網站寫入名單
+  try {
+    if (setupOverview(ss) || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
+    guard(ss);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 function doGet(e) {
