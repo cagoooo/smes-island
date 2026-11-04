@@ -363,6 +363,31 @@ table.t tr.total td { font-weight: 700; background: var(--paper-2); }
 .stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; margin-top: 10px; }
 .stamp { aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; text-align: center; padding: 10px; font-family: var(--font-display); font-size: var(--fs-sm); line-height: 1.3; border: 2px dashed var(--line); color: var(--ink-3); width: 100%; }
 .stamp.on { border: 3px double var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 9%, #fff); transform: rotate(-6deg); font-weight: 700; }
+.log-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.log-stats { display: flex; gap: 8px; }
+.log-stats span { display: flex; flex-direction: column; align-items: center; min-width: 74px; padding: 6px 12px; border-radius: 14px; background: var(--paper-2); font-size: var(--fs-xs); color: var(--ink-2); line-height: 1.3; }
+.log-stats b { font-family: var(--font-display); font-size: var(--fs-xl); color: var(--ink); line-height: 1.1; }
+.log-stats span:first-child b { color: var(--koi-deep); }
+.log-tools { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 10px -18px 4px; padding: 8px 18px; background-color: var(--paper); background-image: var(--grain); border-bottom: 1px solid var(--line); }
+.log-depts { display: flex; flex-wrap: wrap; gap: 6px; }
+.log-depts button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 99px; font-size: var(--fs-sm); font-weight: 700; color: var(--c); background: #fff; border: 2px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.log-depts button small { font-size: .78em; opacity: .75; }
+.log-depts button.on { color: #fff; background: var(--c); border-color: var(--c); }
+#logSearch { flex: 1 1 220px; max-width: 320px; padding: 7px 14px; border-radius: 99px; border: 1.5px solid var(--line); background: #fff; font: inherit; font-size: var(--fs-sm); }
+.log-group h3 { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; font-family: var(--font-display); font-size: var(--fs-md); }
+.log-group h3 small { font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 500; color: var(--ink-3); }
+.log-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.log-card { display: flex; flex-direction: column; gap: 6px; padding: 11px 14px 10px; border-radius: 14px; background: #fff; border-left: 5px solid var(--c); box-shadow: 0 2px 8px rgba(60, 40, 10, .08); color: var(--ink); text-decoration: none; transition: transform .15s, box-shadow .15s; }
+.log-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(60, 40, 10, .14); }
+.log-card strong { font-weight: 700; line-height: 1.5; }
+.log-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--ink-3); }
+.log-dept { padding: 1px 8px; border-radius: 6px; color: #fff; background: var(--c); font-weight: 700; }
+.log-meta i { font-style: normal; font-weight: 700; padding: 0 7px; border-radius: 6px; color: var(--t); border: 1.5px solid var(--t); }
+.log-meta em { font-style: normal; font-weight: 800; padding: 0 6px; border-radius: 6px; color: #fff; background: #e0452f; }
+.log-foot { display: flex; justify-content: space-between; margin-top: auto; font-size: var(--fs-xs); color: var(--ink-3); }
+.log-foot span { font-weight: 700; color: var(--c); }
+.log-empty { margin: 24px 0; text-align: center; color: var(--ink-2); }
+@media (max-width: 560px) { .log-stats span { min-width: 0; padding: 5px 10px; } #logSearch { max-width: none; } .log-grid { grid-template-columns: 1fr; } }
 .news-item { display: block; padding: 9px 2px; border-bottom: 1px dashed var(--line); text-decoration: none; color: var(--ink); }
 .news-item:hover strong { color: var(--koi-deep); }
 .news-item small { color: var(--ink-3); display: block; font-size: var(--fs-xs); }

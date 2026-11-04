@@ -896,13 +896,75 @@ function chPassed(st) {
     <div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="M">領取證書</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
 }
 
+// ───────── 校園日誌 ─────────
+// 發布者對應處室，分類、上色都用這個；對不到的放「其他」
+const DEPTS = [
+  { k: 'edu', n: '教務處', c: '#2f8fb0', by: ['教務', '教學', '設備', '註冊', '資訊', '圖書'] },
+  { k: 'stu', n: '學務處', c: '#d9432f', by: ['學務', '訓育', '生教', '體衛', '衛生', '體育'] },
+  { k: 'gui', n: '輔導室', c: '#4f9a54', by: ['輔導', '特教', '資料'] },
+  { k: 'gen', n: '總務處', c: '#c8861f', by: ['總務', '文書', '事務', '出納'] },
+  { k: 'etc', n: '其他', c: '#7a6f8f', by: [] },
+];
+const deptOf = (by = '') => DEPTS.find((d) => d.by.some((w) => by.includes(w))) || DEPTS[DEPTS.length - 1];
+const TAG_COLOR = { 研習: '#7a3f8f', 公告: '#b5563c', 活動: '#e0812a', 資源: '#2f9c95' };
+const LOG = { dept: 'all', q: '' };
+const taipeiDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(d);
+const dayGap = (date) => Math.round((Date.parse(`${taipeiDay()}T00:00:00+08:00`) - Date.parse(`${date}T00:00:00+08:00`)) / 864e5);
+const WEEK = '日一二三四五六';
+const dayLabel = (date) => {
+  const [, m, d] = date.split('-');
+  return `${+m} 月 ${+d} 日（${WEEK[new Date(`${date}T12:00:00+08:00`).getDay()]}）`;
+};
+
+function logItems() {
+  const q = LOG.q.trim();
+  return S.news.filter((n) => (LOG.dept === 'all' || deptOf(n.by).k === LOG.dept) && (!q || `${n.title}${n.by}${n.tag}`.includes(q)));
+}
+
+// 依日期分成今天、昨天、這幾天與更早；每則公告標出處室、發布者與類別
+function renderLog() {
+  const list = logItems();
+  const groups = [];
+  for (const n of list) {
+    const gap = dayGap(n.date);
+    const name = gap <= 0 ? '今天' : gap === 1 ? '昨天' : gap < 7 ? '這幾天' : '更早的公告';
+    let g = groups.find((x) => x.name === name);
+    if (!g) groups.push((g = { name, items: [] }));
+    g.items.push(n);
+  }
+  const card = (n) => {
+    const d = deptOf(n.by);
+    const fresh = dayGap(n.date) <= 0;
+    return `<a class="log-card" style="--c:${d.c}" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">
+      <span class="log-meta"><b class="log-dept">${d.n}</b>${n.by ? `<span>${esc(n.by)}</span>` : ''}${n.tag ? `<i style="--t:${TAG_COLOR[n.tag] || '#6c6f7a'}">${esc(n.tag)}</i>` : ''}${fresh ? '<em>NEW</em>' : ''}</span>
+      <strong>${esc(n.title)}</strong>
+      <span class="log-foot">${dayLabel(n.date)}<span>看公告 ›</span></span></a>`;
+  };
+  $('#logBody').innerHTML = list.length
+    ? groups.map((g) => `<section class="log-group"><h3>${g.name}<small>${g.items.length} 則</small></h3><div class="log-grid">${g.items.map(card).join('')}</div></section>`).join('')
+    : `<p class="log-empty">${S.news.length ? '找不到符合的公告，換個關鍵字或處室試試看。' : '公告暫時無法載入，請到學校官網查看。'}</p>`;
+  $$('#logDepts button').forEach((b) => b.classList.toggle('on', b.dataset.dept === LOG.dept));
+}
+
 function showLog() {
   const items = S.news;
-  const body = items.length
-    ? items.map((n) => `<a class="news-item" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer"><small>${esc(n.date)}${n.by ? `・${esc(n.by)}` : ''}</small>${n.tag ? `<span class="tag">${esc(n.tag)}</span>` : ''}<strong>${esc(n.title)}</strong></a>`).join('')
-    : '<p>公告暫時無法載入，請到學校官網查看。</p>';
-  openModal(`${dialogHead('校園日誌')}<div class="dialog-body"><p class="note">同步自石門國小官網公告</p>${body}
-    <div class="btn-row"><a class="btn" href="${SCHOOL.site}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;color:inherit">前往學校官網 ›</a></div></div>`, true);
+  const today = items.filter((n) => dayGap(n.date) <= 0).length;
+  const week = items.filter((n) => dayGap(n.date) < 7).length;
+  const count = (k) => items.filter((n) => deptOf(n.by).k === k).length;
+  const updated = S.newsAt ? new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(S.newsAt)) : '';
+  const chips = [{ k: 'all', n: '全部', c: '#3b2c1d', num: items.length }, ...DEPTS.map((d) => ({ ...d, num: count(d.k) })).filter((d) => d.num)];
+  openModal(`${dialogHead('校園日誌')}<div class="dialog-body log">
+    <div class="log-top">
+      <div class="log-stats"><span><b>${today}</b>今天新公告</span><span><b>${week}</b>這一週</span><span><b>${items.length}</b>全部</span></div>
+      <p class="note">同步自石門國小官網公告${updated ? `・更新於 ${updated}` : ''}</p>
+    </div>
+    <div class="log-tools">
+      <div class="log-depts" id="logDepts" role="group" aria-label="依處室篩選">${chips.map((d) => `<button data-act="logDept" data-dept="${d.k}" style="--c:${d.c}">${d.n}<small>${d.num}</small></button>`).join('')}</div>
+      <input id="logSearch" type="search" placeholder="搜尋公告，例如：研習、營隊、獎學金" aria-label="搜尋公告" value="${esc(LOG.q)}">
+    </div>
+    <div id="logBody"></div>
+    <div class="btn-row"><a class="cta lake" href="${SCHOOL.site}" target="_blank" rel="noopener noreferrer">前往學校官網 ›</a></div></div>`, true);
+  renderLog();
 }
 
 function showHonors() {
@@ -1041,7 +1103,7 @@ async function loadLive() {
     safe(fetchAir, (a) => { S.air = a; paintWeather(); }),
     safe(fetchAlert, (a) => { S.alert = a; paintStorm(); }),
     safe(fetchReservoir, (r) => { S.res = r; paintReservoir(); }, () => { S.resFail = true; paintReservoir(); }),
-    safe(fetchNews, (d) => { S.news = d.items || []; if (!S.news.length) $('#newsTicker').innerHTML = '<span class="tick"><span>公告暫時無法載入</span></span>'; }),
+    safe(fetchNews, (d) => { S.news = d.items || []; S.newsAt = d.updated; if (!S.news.length) $('#newsTicker').innerHTML = '<span class="tick"><span>公告暫時無法載入</span></span>'; }),
   ]);
 }
 
@@ -1139,6 +1201,7 @@ const actions = {
     challenge.set(newRun(t.dataset.band, sheetItems, prev?.levels?.map((l) => l.q) || []));
     chLevel();
   },
+  logDept(t) { LOG.dept = t.dataset.dept; renderLog(); },
   chBook() { openBook(); },
   chBack() { closeBook(); },
   chNext() { chLevel(); },
@@ -1305,6 +1368,7 @@ document.addEventListener('click', (e) => {
 });
 
 $('#search').addEventListener('input', (e) => renderList(e.target.value));
+document.addEventListener('input', (e) => { if (e.target.id === 'logSearch') { LOG.q = e.target.value; renderLog(); } });
 document.addEventListener('change', (e) => { if (e.target.id === 'qrPick') showQr(e.target.value); });
 
 window.addEventListener('keydown', (e) => {
