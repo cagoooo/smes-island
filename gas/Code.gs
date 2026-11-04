@@ -296,7 +296,7 @@ function setupOverview(ss) {
     rule().whenNumberGreaterThanOrEqualTo(3).setBackground('#d9eed4').build(),
     SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0).setBackground('#fbe0da').setBold(true).setRanges([sh.getRange(total + 3, 3)]).build(),
   ]);
-  [120, 270, 110, 110, 110, 70].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  [120, 330, 110, 110, 110, 70].forEach((w, i) => sh.setColumnWidth(i + 1, w));
   sh.setFrozenRows(4);
   return true;
 }
