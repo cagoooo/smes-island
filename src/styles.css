@@ -275,6 +275,13 @@ table.t tr.total td { font-weight: 700; background: var(--paper-2); }
 .say-box p { font-family: var(--font-display); font-size: var(--fs-base); line-height: 1.4; }
 .say-box button { position: relative; z-index: 1; margin-top: 5px; padding: 4px 14px; border-radius: 99px; background: var(--ink); color: var(--paper); font-size: var(--fs-xs); font-weight: 700; }
 .say-btns { display: flex; gap: 6px; justify-content: center; }
+.say.auto .say-box { pointer-events: none; padding: 6px 11px; background: #fff8e1; border: 2px solid #f0b429; animation: say-pop .3s ease-out; }
+.say.auto .say-box::after { background: #fff8e1; border-right: 2px solid #f0b429; border-bottom: 2px solid #f0b429; }
+.say.auto .say-box p { font-size: var(--fs-sm); }
+@keyframes say-pop { from { transform: translateX(-50%) scale(.7); opacity: 0; } }
+.door-chat { position: absolute; left: 0; top: 0; will-change: transform; pointer-events: auto; display: inline-flex; align-items: center; gap: 3px; padding: 4px 10px; border-radius: 99px; font-size: var(--fs-sm); font-weight: 800; color: #1e2a3a; background: #fff; border: 2px solid #ffc94d; box-shadow: 0 4px 12px rgba(20, 30, 45, .35); animation: door-bob 1.8s ease-in-out infinite; }
+.door-chat b { font-weight: 800; }
+@keyframes door-bob { 50% { margin-top: -4px; } }
 .say-btns button:first-child { background: var(--koi); }
 
 /* 跟著逛島時的資訊列 */
@@ -528,7 +535,7 @@ body.listing .walkbar { display: none; }
 @media (min-width: 861px) { .watch.shut { transform: translateX(calc(100% + 24px)); opacity: 0; pointer-events: none; } }
 @media (max-width: 860px) { .desk-only { display: none !important; } }
 @media (prefers-reduced-motion: reduce) {
-  .quest-tag, .quest-tag.done, .ch-state.done { animation: none; }
+  .quest-tag, .quest-tag.done, .ch-state.done, .door-chat, .say.auto .say-box { animation: none; }
   .wx-magic.hint { animation: none; box-shadow: 0 0 0 4px rgba(138, 85, 184, .3); }
   .loader-card img, .watch-head .pulse { animation: none; }
   .panel, .watch { transition: none; }

@@ -270,7 +270,7 @@ let sayEl = null, sayWho = null, sayTimer;
 function hideSay() {
   clearTimeout(sayTimer);
   sayEl?.remove();
-  sayEl = sayWho = null;
+  sayEl = sayWho = sayDoor = null;
 }
 
 const SKY_TAG = { day: '☀️', cloudy: '☁️', rain: '🌧️', storm: '🌀', dusk: '🌇', night: '🌙' };
@@ -290,6 +290,86 @@ function showSay(p) {
   sayEl = document.createElement('div');
   sayEl.className = 'say';
   sayEl.innerHTML = sayHtml(p);
+  $('#labels').appendChild(sayEl);
+  sayTimer = setTimeout(hideSay, 9000);
+}
+
+// ───────── 颱風天：跑進屋時自己喊出防颱提醒；進屋後門口出現對話泡泡，點開聽屋裡在聊什麼 ─────────
+const autoSays = [];
+const doorTags = new Map();
+let autoNext = 0, sayDoor = null;
+
+function onScreen(p, camera) {
+  world.people.headOf(p, v3);
+  v3.project(camera);
+  return v3.z < 1 && Math.abs(v3.x) < 0.85 && v3.y < 0.7 && v3.y > -0.8;
+}
+
+function doorPos(g) {
+  const is = world.islands[g.id], gp = is.group.position;
+  return v3.set(gp.x + g.door.x, gp.y + is.nav.y(g.door.x, g.door.z) + 1.5, gp.z + g.door.z);
+}
+
+function stormTalk(camera, W, H) {
+  const P = world.people;
+  const now = performance.now();
+  for (let i = autoSays.length - 1; i >= 0; i--) {
+    const a = autoSays[i];
+    if (now > a.until || a.p.vis < 0.3 || !P.storm) { a.el.remove(); autoSays.splice(i, 1); continue; }
+    P.headOf(a.p, v3);
+    place(a.el, camera, W, H);
+  }
+  // 一次最多三個人喊話，輪流換人，畫面才不會被泡泡塞滿
+  if (P.storm && now > autoNext && autoSays.length < 3) {
+    autoNext = now + 1600 + Math.random() * 1400;
+    const busy = new Set(autoSays.map((a) => a.p));
+    if (sayWho) busy.add(sayWho);
+    const cand = P.list.filter((p) => p.crew.state === 'shelter' && p.crew.on && p.vis > 0.8 && !busy.has(p) && onScreen(p, camera));
+    if (cand.length) {
+      const p = cand[Math.floor(Math.random() * cand.length)];
+      const el = document.createElement('div');
+      el.className = 'say auto';
+      el.innerHTML = `<div class="say-box"><p>${esc(P.tipOf(p))}</p></div>`;
+      $('#labels').appendChild(el);
+      autoSays.push({ p, el, until: now + 3400 });
+    }
+  }
+  const seen = new Set();
+  if (P.storm) {
+    for (const g of P.indoor()) {
+      seen.add(g.key);
+      let t = doorTags.get(g.key);
+      if (!t) {
+        const el = document.createElement('button');
+        el.className = 'door-chat';
+        el.dataset.act = 'doorTalk';
+        el.dataset.key = g.key;
+        el.setAttribute('aria-label', '聽聽屋裡在聊什麼');
+        $('#labels').appendChild(el);
+        doorTags.set(g.key, (t = { el, g, n: -1 }));
+      }
+      t.g = g;
+      if (t.n !== g.n) { t.n = g.n; t.el.innerHTML = `💬<b>${g.n}</b>`; }
+      doorPos(g);
+      place(t.el, camera, W, H);
+    }
+  }
+  for (const [k, t] of doorTags) if (!seen.has(k)) { t.el.remove(); doorTags.delete(k); }
+  if (sayDoor && !seen.has(sayDoor.key)) hideSay();
+}
+
+function doorHtml(g) {
+  return `<div class="say-box"><strong>🌀 ${esc(byId[g.id].name)}・屋裡有 ${g.n} 人在躲颱風</strong><p>${esc(world.people.indoorLine(g))}</p>`
+    + '<div class="say-btns"><button data-act="doorMore">再聽一句</button></div></div>';
+}
+
+function showDoor(g) {
+  music.sfx('pop');
+  hideSay();
+  sayDoor = g;
+  sayEl = document.createElement('div');
+  sayEl.className = 'say';
+  sayEl.innerHTML = doorHtml(g);
   $('#labels').appendChild(sayEl);
   sayTimer = setTimeout(hideSay, 9000);
 }
@@ -337,7 +417,9 @@ function onFrame(camera) {
   }
   const g = S.island && world.islands[S.island].group;
   if (g) for (const p of pins) { v3.copy(p.anchor).add(g.position); place(p.el, camera, W, H); }
-  if (sayEl) { world.people.headOf(sayWho, v3); place(sayEl, camera, W, H); }
+  if (sayEl && sayWho) { world.people.headOf(sayWho, v3); place(sayEl, camera, W, H); }
+  if (sayEl && sayDoor) { doorPos(sayDoor); place(sayEl, camera, W, H); }
+  stormTalk(camera, W, H);
   if (S.walking) paintStroll();
 }
 
@@ -1156,6 +1238,14 @@ const actions = {
   strollIsland() { openIsland(world.people.followed.here); },
   strollEnd() { stopStroll(true); },
   sayFollow() { if (sayWho) startStroll(sayWho.crew); },
+  doorTalk(t) { const g = doorTags.get(t.dataset.key)?.g; if (g) showDoor(g); },
+  doorMore() {
+    if (!sayDoor || !sayEl) return;
+    music.sfx('pop');
+    sayEl.innerHTML = doorHtml(sayDoor);
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(hideSay, 9000);
+  },
   sayMore() {
     if (!sayWho || !sayEl) return;
     music.sfx('pop');

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.22.0",
-  "releaseNotes": "校園日誌改版：依處室分類篩選、搜尋公告，並依今天、昨天、這幾天分組",
+  "version": "1.23.0",
+  "releaseNotes": "颱風天跑進屋時會喊出防颱提醒，進屋後點門口的對話泡泡能聽屋裡在聊什麼",
   "type": "module",
   "scripts": {
     "dev": "vite",

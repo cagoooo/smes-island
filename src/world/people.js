@@ -125,6 +125,7 @@ export class People {
       if (dd < best) { best = dd; door = d; }
     }
     if (!door) door = { x, z }; // 這座島沒有房子：原地躲進雨中
+    c.door = door;
     c.ball = null;
     this.ballMesh.setMatrixAt(c.id, ZERO);
     c.act = null;
@@ -758,6 +759,36 @@ export class People {
 
   headOf(p, out) { return out.set(p.x, p.y + p.lift * p.s + 1.32 * p.s * (p.kind === 'teacher' ? 1.18 : 1), p.z); }
 
+  // 跑進屋途中自己喊的防颱提醒
+  tipOf(p) {
+    const set = [...PEOPLE_LINES.tips, ...PEOPLE_LINES.shelter[p.kind]].filter((s) => s !== p.last);
+    p.last = this.pick(set);
+    return p.last;
+  }
+
+  // 已經進屋的人，依躲進哪一扇門分組，門口顯示人數
+  indoor() {
+    const m = new Map();
+    for (const c of this.crews) {
+      if (c.state !== 'inside' || !c.door || !c.on) continue;
+      const key = `${c.here}:${c.door.x.toFixed(1)}:${c.door.z.toFixed(1)}`;
+      let g = m.get(key);
+      if (!g) m.set(key, (g = { key, id: c.here, door: c.door, n: 0, teacher: false }));
+      g.n += c.members.length;
+      if (c.teacher) g.teacher = true;
+    }
+    return [...m.values()];
+  }
+
+  // 屋裡的對話：有老師的屋子，老師和學生輪流說
+  indoorLine(g) {
+    g.turn = (g.turn || 0) + 1;
+    const kind = g.teacher && g.turn % 2 ? 'teacher' : 'student';
+    const set = PEOPLE_LINES.indoor[kind].filter((s) => s !== g.last);
+    g.last = this.pick(set);
+    return g.last;
+  }
+
   greet(p, camera) {
     p.greet = 1.6;
     p.greetYaw = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
@@ -779,7 +810,7 @@ export class People {
       p.last = this.pick(pool);
       return p.last;
     };
-    if (c.state === 'shelter') return say(PEOPLE_LINES.shelter[p.kind]);
+    if (c.state === 'shelter') return say([...PEOPLE_LINES.shelter[p.kind], ...PEOPLE_LINES.tips]);
     const weather = PEOPLE_LINES.weather[this.sky()]?.[p.kind];
     if (layer === 2) return say(weather) || this.actLine(p);
     if (layer === 0) return say(PEOPLE_LINES.island[c.here]) || say(weather);
