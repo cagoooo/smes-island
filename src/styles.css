@@ -552,12 +552,17 @@ body.listing .walkbar { display: none; }
 .cert-err { margin-top: 8px; color: #b23a2a; font-weight: 700; }
 .cert-who { font-family: var(--font-display); font-size: var(--fs-xl); text-align: center; margin: 6px 0; }
 .cert-view { display: grid; place-items: center; min-height: 200px; }
-.cert-view img { width: 100%; height: auto; border-radius: 6px; box-shadow: var(--shadow-rest); }
+/* 證書圖片限高，平板橫放時下載、列印、關閉按鈕不用往下捲就看得到 */
+.cert-view img { width: auto; max-width: 100%; height: auto; max-height: max(240px, calc(100dvh - 260px)); border-radius: 6px; box-shadow: var(--shadow-rest); }
 .cert-tip { margin-top: 10px; text-align: center; font-size: var(--fs-sm); color: var(--ink-2); }
 .cta[hidden] { display: none; }
 .handover { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 14px; background: color-mix(in srgb, var(--koi) 12%, #fff); border: 2px solid var(--koi); border-radius: 12px; }
 .handover p { margin: 0; font-weight: 700; line-height: 1.5; }
 .handover .cta { flex: none; }
+.handover.quiet { background: #f6f1e8; border: 1px dashed #c9b89c; padding: 10px 14px; }
+.handover.quiet p { font-weight: 600; font-size: var(--fs-sm); color: #6b5a44; }
+.cta.plain { background: #fff; color: var(--koi); border: 2px solid currentColor; box-shadow: none; padding: 7px 14px; }
+.cta.go-on { font-size: 1.04em; }
 #certPrint { display: none; }
 @media print {
   @page { size: A4 landscape; margin: 0; }

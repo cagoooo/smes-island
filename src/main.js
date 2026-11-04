@@ -185,7 +185,7 @@ const passed = () => challenge.get()?.state === 'pass';
 const ready = () => S.hippos.size === 12 && S.stamps.size === 12;
 const tierState = () => ({ hippos: S.hippos.size, stamps: S.stamps.size, passed: passed(), playing: challenge.get()?.state === 'play' });
 const lvl = (v) => (v === 'M' ? 'M' : +v);
-const handover = (text) => `<div class="handover"><p>${text}</p><button class="cta koi" data-act="certReset">換下一位同學</button></div>`;
+const handover = (text, quiet = false) => `<div class="handover${quiet ? ' quiet' : ''}"><p>${text}</p><button class="cta ${quiet ? 'plain' : 'koi'}" data-act="certReset">換下一位同學</button></div>`;
 const paintNext = () => { $('#nextBtn').hidden = !hasProgress(); };
 
 function setHint() {
@@ -709,8 +709,9 @@ async function showCert(level) {
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
     <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
-    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button></div>
-    ${handover('要把平板交給下一位同學嗎？先把證書存好或印好，再按這裡。')}</div>`, true);
+    <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button>
+    <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' ? '關閉證書，繼續逛島' : '關閉證書，繼續闖關'} ›</button></div>
+    ${handover('平板要交給下一位同學時才按這裡，記得先把證書存好或印好。', true)}</div>`, true);
   try {
     const blob = await drawCert(level, fresh);
     if (certUrl) URL.revokeObjectURL(certUrl);
@@ -1006,6 +1007,16 @@ const actions = {
     showCert(level);
   },
   certPrint() { if (certUrl) printCert(certUrl); },
+  // 領完證書回到群島，告訴孩子下一步可以做什麼，免得以為結束了就按「換下一位」
+  certClose(t) {
+    const level = lvl(t.dataset.level);
+    closeModal();
+    setHint();
+    toast(level === 6 ? '繼續找小河馬，找齊 12 隻還有金色證書！'
+      : level === 'M' ? '記得帶證書到校長室兌換小客人招待券！'
+        : S.stamps.size < 12 ? `再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
+          : passed() ? '你已經是尋河馬達人了，繼續逛島吧！' : '12 枚章都集滿了，打開閱讀護照挑戰尋河馬達人！');
+  },
   certReset() {
     openModal(`${dialogHead('換下一位同學')}<div class="dialog-body">
       <p>這台裝置的小河馬、蓋章和證書紀錄都會清除，下一位同學要重新尋找。已經存下來或印出來的證書不受影響。</p>
