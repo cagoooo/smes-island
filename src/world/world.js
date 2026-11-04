@@ -375,6 +375,20 @@ export class World {
     if (dyn) dyn.obj.position.y = 0.3 + 1.02 * ratio;
   }
 
+  // 閱讀挑戰的狀況劇：小河馬說燈塔熄了、齒輪停了，島上就真的先停住；答對（done）才恢復並噴出彩紙
+  setQuest(id, mode = 'stuck') {
+    const prev = this.quest;
+    if (prev && prev.id !== id) this.islands[prev.id]?.dyn.forEach((d) => d.quest?.(null));
+    this.quest = id ? { id, mode, at: this.now || 0 } : null;
+    if (!id) return;
+    const is = this.islands[id];
+    is.dyn.forEach((d) => d.quest?.(mode));
+    if (mode === 'done') {
+      const p = is.group.position;
+      this.hippoFx.burst({ x: p.x, y: p.y + 4, z: p.z }, 60, 7, 0.32);
+    }
+  }
+
   setPaused(v) { this.paused = v; }
 
   setTilt(v) { this.tilt = v; }
@@ -449,6 +463,7 @@ export class World {
     this.storm.update(t, this.paused ? 0 : dt, this.env.storm);
     const gale = this.storm.level;
     this.renderer.toneMappingExposure = this.exposure * (1 - gale * 0.1) + this.storm.flash;
+    this.now = t;
     for (const id in this.islands) {
       const is = this.islands[id];
       is.group.position.y = is.base + Math.sin(t * (0.42 + gale * 0.9) + is.phase) * (0.16 + gale * 0.5);
@@ -459,7 +474,11 @@ export class World {
         m.opacity += ((is.ringTarget || 0) - m.opacity) * Math.min(1, dt * 9);
         is.ring.visible = m.opacity > 0.01;
       }
-      for (const d of is.dyn) d.update?.(t, this.env);
+      // 每座島有自己的時鐘：閱讀挑戰卡關時停住（齒輪、衛星碟、風車不轉），答對後加速轉起來
+      const q = this.quest?.id === id ? this.quest : null;
+      const rate = q?.mode === 'stuck' ? 0 : q?.mode === 'done' && t - q.at < 2.5 ? 3.2 : 1;
+      is.clock = (is.clock ?? t) + (this.paused ? 0 : dt) * rate;
+      for (const d of is.dyn) d.update?.(is.clock, this.env);
     }
     const flow = this.paused ? 0 : dt;
     const wet = this.env.rain > 0.15;

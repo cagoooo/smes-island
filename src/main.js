@@ -9,7 +9,7 @@ import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { challenge, loadBank, newRun, answer, levelHtml, rules } from './ui/challenge.js';
-import { BANDS, PASS, REDEEM, bandOf } from './data/challenge.js';
+import { BANDS, PASS, REDEEM, QUEST, bandOf } from './data/challenge.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAlert, stormState, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
@@ -87,6 +87,7 @@ $('#app').innerHTML = `
   <div class="ctl"><button data-act="strollNext">換一隊</button><button data-act="strollIsland">看這座島</button><button class="main" data-act="strollEnd">結束逛島</button></div>
 </div>
 
+<button class="book-chip" id="bookChip" data-act="chBack" hidden></button>
 <button class="storm-chip" id="stormChip" data-act="storm" hidden><b id="stormTitle"></b><span>點我看防颱小叮嚀</span></button>
 <button class="hintcard card" id="hint" data-act="mission">
   <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span><span class="visit-line" id="visitLine" hidden>累計 <b id="visitTotal">0</b> 人次登島・今日 <b id="visitToday">0</b> 人</span></span>
@@ -216,7 +217,7 @@ function buildPlates() {
     const b = document.createElement('button');
     b.className = 'plate';
     b.style.setProperty('--c', d.color);
-    b.innerHTML = `<span class="dot"></span>${esc(d.name)}<em>${esc(d.tag)}</em>`;
+    b.innerHTML = `<span class="dot"></span>${esc(d.name)}<em>${esc(d.tag)}</em><span class="quest-tag" hidden></span>`;
     b.addEventListener('click', () => openIsland(d.id));
     b.addEventListener('pointerenter', () => world.setHover(d.id));
     b.addEventListener('pointerleave', () => world.setHover(null));
@@ -804,9 +805,68 @@ function chLevel(shown = false) {
   if (S.listing) setList(false);
   if (S.island) closeIsland();
   if (!shown) world?.focusIsland(st.levels[k].i, true);
+  S.chShown = shown;
+  if (!shown) setQuest(st.levels[k].i, 'stuck');
   openModal(`${dialogHead('島嶼閱讀挑戰')}<div class="dialog-body ch">${levelHtml(st, k, shown)}</div>`, false, true);
   // 手機上對錯說明常在畫面外，答完自動捲到說明和「下一關」
   if (shown) $('.ch-fb')?.scrollIntoView({ block: 'nearest', behavior: calm ? 'auto' : 'smooth' });
+}
+
+// 島上的狀況跟著小河馬的話走：出題時卡住，答對才解開；挑戰結束就恢復原樣
+let questTimer = 0;
+function setQuest(id, mode) {
+  clearTimeout(questTimer);
+  for (const [k, p] of Object.entries(plates)) {
+    const tag = $('.quest-tag', p);
+    const on = k === id && !!mode;
+    tag.hidden = !on;
+    p.classList.toggle('quest', on);
+    if (on) { tag.textContent = QUEST[id][mode === 'done' ? 1 : 0]; tag.classList.toggle('done', mode === 'done'); }
+  }
+  world?.setQuest(mode ? id : null, mode);
+}
+const clearQuest = () => setQuest(null, null);
+
+// 開書作答：挑出和題目、答案字詞最相關的分頁，孩子不用每個分頁翻一遍；答案要自己讀出來
+function bookTab(lv) {
+  const pairs = (s) => {
+    const t = s.replace(/[^一-鿿0-9A-Za-z]/g, '');
+    return new Set(Array.from({ length: Math.max(0, t.length - 1) }, (_, i) => t.slice(i, i + 2)));
+  };
+  const want = pairs(`${lv.q}${lv.o[lv.a]}`);
+  let best = 0, top = 0;
+  content[lv.i].tabs.forEach((tab, i) => {
+    const text = JSON.stringify(tab);
+    let n = 0;
+    for (const w of want) if (text.includes(w)) n += 1;
+    if (n > top) { top = n; best = i; }
+  });
+  return best;
+}
+
+function openBook() {
+  const st = challenge.get();
+  if (st?.state !== 'play' && !S.chShown) return;
+  const k = S.chShown ? st.picks.length - 1 : st.picks.length;
+  const lv = st.levels[k];
+  S.book = { k, shown: S.chShown };
+  closeModal();
+  openIsland(lv.i, { tab: bookTab(lv) });
+  const chip = $('#bookChip');
+  chip.innerHTML = S.chShown ? `📝 看完了，回到第 ${k + 1} 關` : `📝 找到答案了？回到第 ${k + 1} 關題目`;
+  chip.classList.toggle('low', !$('#stormChip').hidden);
+  chip.hidden = false;
+}
+
+function closeBook() {
+  const b = S.book;
+  $('#bookChip').hidden = true;
+  S.book = null;
+  if (S.island) closeIsland();
+  const st = challenge.get();
+  if (!b || !st || (st.state !== 'play' && !b.shown)) { showChallenge(); return; }
+  world?.focusIsland(st.levels[b.k].i, true);
+  chLevel(b.shown);
 }
 
 function chPick(n) {
@@ -815,11 +875,13 @@ function chPick(n) {
   const ok = answer(st, n);
   challenge.set(st);
   music.sfx(ok ? 'correct' : 'boing');
-  if (ok) world?.hippoFx.hop(st.levels[st.picks.length - 1].i, 0.55);
+  const isle = st.levels[st.picks.length - 1].i;
+  if (ok) { world?.hippoFx.hop(isle, 0.55); setQuest(isle, 'done'); }
   chLevel(true);
 }
 
 function chFailed(st) {
+  clearQuest();
   world?.clearFocus();
   openModal(`${dialogHead('差一點點！')}<div class="dialog-body ch-end">
     <p>這次闖了 <b>${st.picks.length}</b> 關，答對 <b>${st.picks.length - st.wrong}</b> 題。小河馬們幫你換了新題目，再挑戰一次吧！</p>
@@ -827,6 +889,7 @@ function chFailed(st) {
 }
 
 function chPassed(st) {
+  clearQuest();
   openModal(`${dialogHead('尋河馬達人')}<div class="dialog-body ch-end">
     <p>你已經通過十二座島的閱讀挑戰，12 題答對 <b>${st.score}</b> 題！</p>
     <p>領取證書後，<b>${REDEEM}</b>帶到校長室兌換小客人招待券。</p>
@@ -1054,7 +1117,7 @@ const actions = {
   wxMenu() { wxOpen($('#wxPop').hidden); },
   wxSet(t) { setTime(t.dataset.time); wxOpen(false); },
   tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
-  modalClose() { closeModal(); },
+  modalClose() { closeModal(); if (!S.book) clearQuest(); },
   finaleClose() { closeFinale(); },
   finalePassport() { closeFinale(); showPassport(); },
   finaleAgain() { closeModal(); celebrate(); },
@@ -1069,8 +1132,11 @@ const actions = {
     challenge.set(newRun(t.dataset.band, sheetItems, prev?.levels?.map((l) => l.q) || []));
     chLevel();
   },
+  chBook() { openBook(); },
+  chBack() { closeBook(); },
   chNext() { chLevel(); },
   chEnd() {
+    clearQuest();
     const st = challenge.get();
     if (st.state !== 'pass') { chFailed(st); return; }
     closeModal();

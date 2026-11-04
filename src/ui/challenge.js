@@ -1,5 +1,5 @@
 // 第三段「尋河馬達人」：十二座島的閱讀挑戰關卡，題目優先用試算表題庫，連不上才用內建題
-import { BANK, SCENES, PASS, MAX_WRONG } from '../data/challenge.js';
+import { BANK, SCENES, QUEST, PASS, MAX_WRONG } from '../data/challenge.js';
 import { ISLANDS, HIPPOS } from '../data/site.js';
 import { API } from './cert.js';
 import { ICON } from './hippo.js';
@@ -109,12 +109,15 @@ export function levelHtml(st, k, shown) {
     <button class="cta ${last ? 'koi' : 'lake'}" data-act="${last ? 'chEnd' : 'chNext'}">${next}</button></div>` : '';
   return `<div class="ch-top"><span class="ch-lv" style="--c:${d.color}">第 ${k + 1} 關／12｜${esc(d.name)}</span>${lives(st)}</div>
     <div class="ch-hippo">${ICON}<p><b>${esc(h.name)}</b>${esc(SCENES[lv.i])}</p></div>
+    <p class="ch-state${shown && ok ? ' done' : ''}">島上狀況：${esc(QUEST[lv.i][shown && ok ? 1 : 0])}${shown && !ok ? '（還沒解開）' : ''}</p>
     ${lv.c ? `<p class="ch-ctx">${esc(lv.c)}</p>` : ''}
-    <p class="quiz-q">${esc(lv.q)}</p>${opts}${fb}${pips(st, shown ? k + 1 : k)}`;
+    <p class="quiz-q">${esc(lv.q)}</p>
+    <button class="ch-book" data-act="chBook">📖 ${shown ? `到${esc(d.name)}看更多` : `翻開${esc(d.name)}的資料找答案`}</button>${opts}${fb}${pips(st, shown ? k + 1 : k)}`;
 }
 
 export const rules = `<ul class="ch-rules">
   <li>十二座島各有一關，由島上的小河馬出題</li>
   <li>12 題要答對 ${PASS} 題，最多只能答錯 ${MAX_WRONG} 題</li>
+  <li>不知道答案時，可以按「翻開島嶼資料」到島上找答案，看完再回來作答</li>
   <li>沒過關也沒關係，小河馬會換新題目，可以再挑戰</li>
 </ul>`;

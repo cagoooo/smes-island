@@ -479,7 +479,17 @@ function admin(k, def) {
   const beam = new THREE.Group();
   beam.add(beamM);
   beam.position.set(1.4, 9.3, -2.6);
-  dyn.push({ obj: beam, update: (t, env) => { beam.rotation.y = t * 0.5; beamM.material.opacity = env.night * 0.2; beam.visible = env.night > 0.05; } });
+  // 閱讀挑戰「燈塔的燈熄了」：卡關時連晚上也不亮，答對後白天也打開光束
+  let lit = 0;
+  dyn.push({
+    obj: beam,
+    quest: (m) => { lit = m === 'done' ? 1 : m === 'stuck' ? -1 : 0; },
+    update: (t, env) => {
+      beam.rotation.y = t * 0.5;
+      beamM.material.opacity = lit > 0 ? Math.max(0.5, env.night * 0.2) : env.night * 0.2;
+      beam.visible = lit > 0 || (lit === 0 && env.night > 0.05);
+    },
+  });
   // 舵輪（校長領航）
   const wheel = new Kit(4);
   wheel.add(G.torus(20, 0.1), C.wood2, { wonk: 0 });
@@ -611,7 +621,19 @@ function results(k, def) {
   star.add(starGeo.toNonIndexed(), C.gold, { layer: 'glow', wonk: 0, ao: 1 });
   const starM = star.build();
   starM.position.set(0, 7, 0);
-  dyn.push({ obj: starM, update: (t) => { starM.rotation.y = t * 0.8; starM.position.y = 7 + Math.sin(t) * 0.3; } });
+  // 閱讀挑戰「天上少了一顆星」：卡關時星星不見，答對後從小變大亮回來
+  let shine = 1, want = 1;
+  dyn.push({
+    obj: starM,
+    quest: (m) => { want = m === 'stuck' ? 0 : 1; if (m === 'done') shine = 0.05; },
+    update: (t) => {
+      shine += (want - shine) * 0.08;
+      starM.visible = shine > 0.03;
+      starM.scale.setScalar(shine);
+      starM.rotation.y = t * 0.8;
+      starM.position.y = 7 + Math.sin(t) * 0.3;
+    },
+  });
   // 書本階梯（閱讀力向上）
   for (let i = 0; i < 7; i++) P.book(k, -8 + i * 0.1, i * 0.42, -4 + i * 0.84, 2.6, 0.42, 1.2, [C.red, C.blue, C.gold, C.teal, C.purple, C.green, C.orange][i], 0.22);
   // 大河馬閱讀護照

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.20.0",
-  "releaseNotes": "颱風來時大家撐傘跑進屋裡躲雨；點老師和學生會揮手打招呼，還能「再聊一句」",
+  "version": "1.21.0",
+  "releaseNotes": "閱讀挑戰可以翻開島嶼資料找答案；島上會跟著小河馬的狀況卡住，答對才解開",
   "type": "module",
   "scripts": {
     "dev": "vite",
