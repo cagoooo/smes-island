@@ -112,7 +112,7 @@ $('#app').innerHTML = `
     <button data-act="music" id="musicBtn" aria-pressed="true">音樂</button>
     <button data-act="sfx" id="sfxBtn" aria-pressed="true">音效</button>
     <button data-act="time" id="timeBtn" title="換天氣、換時間">天氣・即時</button>
-    <button class="on desk-only" data-act="tilt" id="tiltBtn" title="微縮移軸特效">移軸</button>
+    <button class="on desk-only" data-act="tilt" id="tiltBtn" aria-pressed="true" title="模型感：畫面上下變模糊，讓群島看起來像桌上的小模型（攝影的移軸效果）">模型感</button>
     <button data-act="log">日誌</button>
     <button data-act="watch" id="watchBtn" aria-pressed="true" title="顯示或收起雲端瞭望台">瞭望台</button>
   </div>
@@ -1116,7 +1116,14 @@ const actions = {
   time() { wxOpen($('#wxPop').hidden); },
   wxMenu() { wxOpen($('#wxPop').hidden); },
   wxSet(t) { setTime(t.dataset.time); wxOpen(false); },
-  tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
+  // 移軸特效對孩子太抽象，按下時說明畫面變了什麼
+  tilt(el) {
+    const v = !world.tilt;
+    world.setTilt(v);
+    el.classList.toggle('on', v);
+    el.setAttribute('aria-pressed', v);
+    toast(v ? '開啟模型感：畫面上下變模糊，群島看起來像桌上的小模型' : '關閉模型感：整個畫面都清楚，電腦跑起來也比較順');
+  },
   modalClose() { closeModal(); if (!S.book) clearQuest(); },
   finaleClose() { closeFinale(); },
   finalePassport() { closeFinale(); showPassport(); },
@@ -1485,7 +1492,7 @@ async function boot() {
         music.setMood({ storm: env.storm, night: env.night > 0.5, dusk: env.dusk, rain: env.rain > 0.15, cloud: env.cloud >= 0.6, thunder: env.thunder });
       },
       onSplash: () => music.sfx('splash'),
-      onQuality: () => $('#tiltBtn').classList.remove('on'),
+      onQuality: () => { $('#tiltBtn').classList.remove('on'); $('#tiltBtn').setAttribute('aria-pressed', false); },
       onInteract: () => { if (S.touring && !S.tourPaused) actions.tourPause($('#tPause')); },
     });
     await world.build((p, label) => { bar.style.width = `${Math.round(p * 100)}%`; text.textContent = label; });
@@ -1499,6 +1506,7 @@ async function boot() {
   window.__world = world;
   buildPlates();
   $('#tiltBtn').classList.toggle('on', world.tilt);
+  $('#tiltBtn').setAttribute('aria-pressed', world.tilt);
   let prev = performance.now();
   const tick = (now) => { tourTick(now - prev); prev = now; requestAnimationFrame(tick); };
   requestAnimationFrame(tick);

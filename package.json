@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.21.0",
-  "releaseNotes": "閱讀挑戰可以翻開島嶼資料找答案；島上會跟著小河馬的狀況卡住，答對才解開",
+  "version": "1.21.1",
+  "releaseNotes": "「移軸」改名為「模型感」，按下時會說明畫面的變化",
   "type": "module",
   "scripts": {
     "dev": "vite",
