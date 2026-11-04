@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.18.0",
-  "releaseNotes": "第三段「尋河馬達人」上線：找齊 12 隻小河馬、集滿 12 枚章，挑戰十二座島的閱讀關卡",
+  "version": "1.18.1",
+  "releaseNotes": "閱讀挑戰題庫擴充：每座島、每個年段都有 5 題，題目取材自石門國小的閱讀品牌方案",
   "type": "module",
   "scripts": {
     "dev": "vite",
