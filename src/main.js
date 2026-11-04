@@ -9,7 +9,7 @@ import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { challenge, loadBank, newRun, answer, levelHtml, rules } from './ui/challenge.js';
-import { BANDS, PASS, bandOf } from './data/challenge.js';
+import { BANDS, PASS, REDEEM, bandOf } from './data/challenge.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAlert, stormState, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
@@ -192,7 +192,7 @@ function setHint() {
   paintNext();
   const n = S.hippos.size;
   $('#hintText').textContent = n < 12 ? `找到 6 隻、12 隻都能領證書，已找到 ${n} 隻`
-    : passed() ? '你是尋河馬達人！記得帶證書到校長室兌換招待券'
+    : passed() ? `你是尋河馬達人！${REDEEM}帶證書到校長室兌換招待券`
       : S.stamps.size < 12 ? `12 隻都找到了！再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
         : '12 隻、12 枚章都集滿了，快來挑戰尋河馬達人！';
 }
@@ -644,7 +644,7 @@ function showMission() {
       <li><strong>領證書</strong><span>找到 6 隻領「尋寶探險家」，12 隻領「尋寶小達人」。到「閱讀護照」選班級、填姓名就能領。</span></li>
       <li><strong>到校長室領獎勵</strong><span>把證書存起來或印出來，石門國小的同學帶到校長室就能領取獎勵。</span></li>
     </ol>
-    <div class="stage3"><div><strong>第三段・尋河馬達人</strong><span>找齊 12 隻、集滿 12 枚閱讀護照章，再通過十二座島的閱讀挑戰（12 題答對 ${PASS} 題），就能領紫色證書，到校長室兌換<b>小客人招待券</b>！</span></div><button class="cta koi" data-act="challenge">看挑戰</button></div>
+    <div class="stage3"><div><strong>第三段・尋河馬達人</strong><span>找齊 12 隻、集滿 12 枚閱讀護照章，再通過十二座島的閱讀挑戰（12 題答對 ${PASS} 題），就能領紫色證書，${REDEEM}到校長室兌換<b>小客人招待券</b>！</span></div><button class="cta koi" data-act="challenge">看挑戰</button></div>
     <p class="stage4">第四段「AI科技島」即將登場：高年級專題發表，中低年級一起來觀賞</p>
     <p class="mission-now">目前找到 <b>${n}</b> / 12 隻，${next}</p>
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
@@ -656,7 +656,7 @@ function showPassport() {
     <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面找找看閃閃發光的地方。</p>
     <div class="stamps">${ISLANDS.map((d) => `<button class="stamp ${S.stamps.has(d.id) ? 'on' : ''}" style="--c:${d.color}" data-goto="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <h3 class="hippo-title">小河馬證書</h3>
-    <p>找到 6 隻、12 隻各可領一張證書；集滿 12 枚章再通過閱讀挑戰，還能領「尋河馬達人」，到校長室兌換小客人招待券！</p>
+    <p>找到 6 隻、12 隻各可領一張證書；集滿 12 枚章再通過閱讀挑戰，還能領「尋河馬達人」，${REDEEM}到校長室兌換小客人招待券！</p>
     ${certTiers(tierState())}
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <h3 class="hippo-title">小河馬圖鑑</h3>
@@ -708,7 +708,7 @@ async function showCert(level) {
   const moved = sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
-    <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
+    <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : '把證書存起來或印出來，帶到校長室領取獎勵！'}手機也可以長按圖片儲存</p>
     <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button>
     <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' ? '關閉證書，繼續逛島' : '關閉證書，繼續闖關'} ›</button></div>
     ${handover('平板要交給下一位同學時才按這裡，記得先把證書存好或印好。', true)}</div>`, true);
@@ -750,7 +750,7 @@ function showChallenge() {
 function chLocked() {
   const item = (ok, t, n) => `<li class="${ok ? 'ok' : ''}"><strong>${t}</strong><span>${n}</span></li>`;
   openModal(`${dialogHead('第三段：尋河馬達人')}<div class="dialog-body">
-    <p>完成下面三件事，就能領「尋河馬達人」證書，到校長室兌換小客人招待券！</p>
+    <p>完成下面三件事，就能領「尋河馬達人」證書，${REDEEM}到校長室兌換小客人招待券！</p>
     <ol class="ch-need">${item(S.hippos.size === 12, '找齊 12 隻小河馬', `${S.hippos.size} / 12`)}${item(S.stamps.size === 12, '集滿 12 枚閱讀護照章', `${S.stamps.size} / 12`)}${item(false, '通過島嶼閱讀挑戰', `12 題答對 ${PASS} 題`)}</ol>
     <p class="note">點一座島、打開島嶼介紹，就會蓋一枚章；還沒蓋的島在「閱讀護照」裡看得到。</p>
     <div class="btn-row"><button class="cta moss" data-act="passport">看閱讀護照</button><button class="cta koi" data-act="modalClose">繼續尋寶</button></div></div>`);
@@ -764,7 +764,7 @@ function chIntro() {
     ? `<p class="ch-band">${esc(info.cls)}的題目來自<b>${BANDS[bandOf(grade)]}</b>題庫</p><div class="btn-row"><button class="cta koi" data-act="chStart" data-band="${bandOf(grade)}">開始挑戰</button></div>`
     : `<p class="ch-band">你是幾年級？小河馬會依年級出題</p><div class="ch-grades">${[...'一二三四五六'].map((g) => `<button class="cta lake" data-act="chStart" data-band="${bandOf(g)}">${g}年級</button>`).join('')}</div>`;
   openModal(`${dialogHead('島嶼閱讀挑戰')}<div class="dialog-body">
-    <p>小河馬們在十二座島上等你！通過挑戰就能領「尋河馬達人」證書，到校長室兌換小客人招待券。</p>${rules}${pick}</div>`);
+    <p>小河馬們在十二座島上等你！通過挑戰就能領「尋河馬達人」證書，${REDEEM}到校長室兌換小客人招待券。</p>${rules}${pick}</div>`);
 }
 
 // 鏡頭飛到這一關的島，對話框靠邊放，孩子看得到小河馬住在哪裡
@@ -801,7 +801,7 @@ function chFailed(st) {
 function chPassed(st) {
   openModal(`${dialogHead('尋河馬達人')}<div class="dialog-body ch-end">
     <p>你已經通過十二座島的閱讀挑戰，12 題答對 <b>${st.score}</b> 題！</p>
-    <p>領取證書後，帶到校長室兌換小客人招待券。</p>
+    <p>領取證書後，<b>${REDEEM}</b>帶到校長室兌換小客人招待券。</p>
     <div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="M">領取證書</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
 }
 
@@ -1026,7 +1026,7 @@ const actions = {
     closeModal();
     setHint();
     toast(level === 6 ? '繼續找小河馬，找齊 12 隻還有金色證書！'
-      : level === 'M' ? '記得帶證書到校長室兌換小客人招待券！'
+      : level === 'M' ? `${REDEEM}，記得帶證書到校長室兌換小客人招待券！`
         : S.stamps.size < 12 ? `再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
           : passed() ? '你已經是尋河馬達人了，繼續逛島吧！' : '12 枚章都集滿了，打開閱讀護照挑戰尋河馬達人！');
   },

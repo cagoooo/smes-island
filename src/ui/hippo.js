@@ -1,5 +1,6 @@
 // 找到小河馬的畫面動畫：登場卡片、數字飛入計數卡、護照圖鑑、十二隻全滿與通過閱讀挑戰的慶祝
 import { HIPPOS, ISLANDS } from '../data/site.js';
+import { REDEEM } from '../data/challenge.js';
 
 const TOTAL = 12;
 const CARD_MS = 5200;
@@ -70,7 +71,7 @@ export function flyCount(from) {
 const MILESTONE = {
   6: { badge: '探險家', title: '找到 6 隻小河馬了！', text: '你是尋寶探險家，可以領證書囉！<br>再找 6 隻，還有金色證書等著你', later: '繼續找小河馬' },
   12: { badge: '小達人', title: '十二隻全部找到了！', text: '你走遍每一座島，是尋寶小達人！<br>快來領金色證書，集滿 12 枚章還能挑戰尋河馬達人', later: '看閱讀護照' },
-  M: { badge: '達人', title: '通過十二座島的閱讀挑戰！', text: '你是尋河馬達人！<br>領取證書，到校長室兌換小客人招待券', later: '看閱讀護照' },
+  M: { badge: '達人', title: '通過十二座島的閱讀挑戰！', text: `你是尋河馬達人！<br>領取證書，${REDEEM}到校長室兌換小客人招待券`, later: '看閱讀護照' },
 };
 
 export function showFinale(level = TOTAL, score = 0) {

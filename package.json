@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.18.3",
-  "releaseNotes": "換電腦或隔天重玩時，同一張證書沿用第一次的日期和編號，校長室名單不再重複",
+  "version": "1.18.4",
+  "releaseNotes": "尋河馬達人 11 月 11 日（三）起，帶證書到校長室兌換小客人招待券",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -2,6 +2,8 @@
 // 題庫正本在學校試算表的「題庫」分頁（gas/Code.gs），老師可以自己新增、修改或停用題目；
 // 這裡是內建題，試算表連不上時才使用，改了內建題要跑 node scripts/make-seed-gs.mjs 同步到 gas/Seed.gs
 export const PASS = 10;
+// 校長室開始兌換小客人招待券的日子（張校長 2026-11-04 公布）
+export const REDEEM = '11 月 11 日（三）起';
 export const MAX_WRONG = 12 - PASS;
 
 // 一二年級用低年段題目，三四中年段，五六高年段
