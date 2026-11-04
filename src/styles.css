@@ -265,9 +265,11 @@ table.t tr.total td { font-weight: 700; background: var(--paper-2); }
 .say { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
 .say-box { position: absolute; left: 0; bottom: 8px; transform: translateX(-50%); width: max-content; max-width: min(240px, 66vw); padding: 8px 12px 9px; background: var(--paper); border-radius: var(--r-sm); box-shadow: var(--shadow-float); pointer-events: auto; text-align: center; }
 .say-box::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 14px; height: 14px; margin-left: -7px; background: var(--paper); transform: rotate(45deg); }
-.say-box strong { display: block; font-size: var(--fs-xs); color: var(--ink-3); }
+.say-box strong { display: block; font-size: var(--fs-xs); font-weight: 600; color: var(--ink-3); line-height: 1.4; }
 .say-box p { font-family: var(--font-display); font-size: var(--fs-base); line-height: 1.4; }
 .say-box button { position: relative; z-index: 1; margin-top: 5px; padding: 4px 14px; border-radius: 99px; background: var(--ink); color: var(--paper); font-size: var(--fs-xs); font-weight: 700; }
+.say-btns { display: flex; gap: 6px; justify-content: center; }
+.say-btns button:first-child { background: var(--koi); }
 
 /* 跟著逛島時的資訊列 */
 .walkbar { position: fixed; z-index: 28; left: 50%; bottom: calc(78px + var(--safe-b)); transform: translateX(-50%); width: min(620px, calc(100vw - 28px)); padding: 10px 14px 10px 18px; display: flex; align-items: center; gap: 12px; }

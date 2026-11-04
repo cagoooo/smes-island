@@ -399,7 +399,7 @@ export class World {
     this.env.thunder = storm || this.weather.thunder;
     this.rain.set(storm ? 1.5 : this.weather.rain, storm);
     shared.uWind.value = storm ? 3.8 : 0.6 + Math.min(this.weather.wind, 30) / 18;
-    this.people?.setHidden(storm);
+    this.people?.setStorm(storm);
     const weekday = ![0, 6].includes(now.getDay());
     const schoolHours = hour >= 7.5 && hour <= 16.5;
     const previewDay = this.timeMode === 'day';

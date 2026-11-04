@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.19.1",
-  "releaseNotes": "今日書語擴充到 64 句，平板和手機也能在雲端瞭望台看到",
+  "version": "1.20.0",
+  "releaseNotes": "颱風來時大家撐傘跑進屋裡躲雨；點老師和學生會揮手打招呼，還能「再聊一句」",
   "type": "module",
   "scripts": {
     "dev": "vite",

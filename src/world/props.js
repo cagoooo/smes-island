@@ -192,6 +192,7 @@ export function openBook(k, x, y, z, w, d, ry = 0, cover = C.red) {
 // 學校大樓：多層走廊式教室
 export function schoolBuilding(k, x, z, ry, { w = 7, d = 2.4, floors = 3, wall = C.white, trim = C.brick, roof = C.roof, tower = true } = {}) {
   k.at(x, 0, z, ry, 1, () => {
+    k.door(0, 0, d / 2 + 1.1);
     const fh = 1.06;
     const H = floors * fh;
     k.box(w + 0.3, 0.14, d + 0.5, C.stone2, 0, 0, 0.1);
@@ -228,6 +229,7 @@ export function house(k, x, z, ry, { w = 2.2, d = 1.6, h = 1.05, wall = C.cream,
     k.box(w, h, d, wall, 0, 0, 0, { ao: 0.86 });
     k.roof(d + 0.5, 0.72, w + 0.42, roof, 0, h, 0, { ry: Math.PI / 2 });
     k.box(0.42, 0.72, 0.05, door, 0, 0, d / 2 + 0.01);
+    k.door(0, 0, d / 2 + 0.5);
     if (win) {
       k.glow(0.36, 0.34, 0.05, C.win, -w * 0.3, 0.42, d / 2 + 0.01);
       k.glow(0.36, 0.34, 0.05, C.win, w * 0.3, 0.42, d / 2 + 0.01);

@@ -272,15 +272,25 @@ function hideSay() {
   sayEl = sayWho = null;
 }
 
+const SKY_TAG = { day: '☀️', cloudy: '☁️', rain: '🌧️', storm: '🌀', dusk: '🌇', night: '🌙' };
+
+// 點到的人會轉過來揮手；按「再聊一句」話題會從正在做的事、天氣聊到這座島
+function sayHtml(p) {
+  const who = p.kind === 'teacher' ? '老師' : '小朋友';
+  return `<div class="say-box"><strong>${SKY_TAG[world.people.sky()] || ''} ${who}・${esc(world.people.status(p.crew))}</strong><p>${esc(world.people.lineOf(p))}</p>`
+    + '<div class="say-btns"><button data-act="sayMore">再聊一句</button><button data-act="sayFollow">跟著走</button></div></div>';
+}
+
 function showSay(p) {
   music.sfx('pop');
   hideSay();
   sayWho = p;
+  world.people.greet(p, world.camera);
   sayEl = document.createElement('div');
   sayEl.className = 'say';
-  sayEl.innerHTML = `<div class="say-box"><strong>${p.kind === 'teacher' ? '老師' : '小朋友'}</strong><p>${esc(world.people.lineOf(p))}</p><button data-act="sayFollow">跟著走</button></div>`;
+  sayEl.innerHTML = sayHtml(p);
   $('#labels').appendChild(sayEl);
-  sayTimer = setTimeout(hideSay, 7000);
+  sayTimer = setTimeout(hideSay, 9000);
 }
 
 function startStroll(crew) {
@@ -1021,6 +1031,14 @@ const actions = {
   strollIsland() { openIsland(world.people.followed.here); },
   strollEnd() { stopStroll(true); },
   sayFollow() { if (sayWho) startStroll(sayWho.crew); },
+  sayMore() {
+    if (!sayWho || !sayEl) return;
+    music.sfx('pop');
+    world.people.greet(sayWho, world.camera);
+    sayEl.innerHTML = sayHtml(sayWho);
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(hideSay, 9000);
+  },
   music() { music.toggle(); },
   sfx() { music.toggleSfx(); },
   labels(el) { S.labels = !S.labels; el.classList.toggle('on', S.labels); $('#labels').classList.toggle('hidden', !S.labels); },

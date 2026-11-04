@@ -51,6 +51,7 @@ export class Kit {
     this.layers = { solid: [], glow: [], water: [] };
     this.stack = [new THREE.Matrix4()];
     this.anchors = [];
+    this.doors = [];
   }
 
   rand(a = 1, b) {
@@ -158,6 +159,12 @@ export class Kit {
   spot(x, y, z) {
     const v = new THREE.Vector3(x, y, z).applyMatrix4(this.stack[this.stack.length - 1]);
     this.anchors.push(v);
+    return this;
+  }
+
+  // 登記房屋門口：颱風來時島上的人跑到這裡進屋躲雨
+  door(x, y, z) {
+    this.doors.push(new THREE.Vector3(x, y, z).applyMatrix4(this.stack[this.stack.length - 1]));
     return this;
   }
 

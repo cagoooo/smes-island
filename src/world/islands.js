@@ -121,6 +121,7 @@ function course(k, def) {
     for (let i = 0; i < 3; i++) k.box(0.68, 1, 0.04, C.paper, -0.84 + i * 0.84, 0.46, 0.13, { wonk: 0.006 });
     for (let i = 0; i < 3; i++) for (let l = 0; l < 4; l++) k.box(0.5, 0.05, 0.03, l ? '#a79b86' : C.red, -0.84 + i * 0.84, 1.26 - l * 0.2, 0.16, { wonk: 0 });
     k.roof(0.9, 0.42, 3, C.roof2, 0, 1.7, 0, { ry: Math.PI / 2 });
+    k.door(0, 0, 0.9);
     k.box(0.1, 0.2, 0.1, C.wood2, -1.1, 0, 0); k.box(0.1, 0.2, 0.1, C.wood2, 1.1, 0, 0);
   });
   // 3 小小說書人：半圓小劇場
@@ -161,6 +162,7 @@ function inquiry(k, def) {
     k.add(G.sphere(12, 6), '#7fa8c0', { y: 2.4, sx: 2.5, sy: 2.1, sz: 2.5 });
     k.box(1, 0.2, 2.6, C.dark, 0, 3.8, 0.8, { rx: 0.6 });
     k.box(0.7, 1.3, 0.06, C.wood2, 0, 0, 2.55);
+    k.door(0, 0, 3.1);
     for (const a of [-1, 1]) k.glow(0.5, 0.5, 0.05, C.win, a * 1.4, 1, 2.2, { ry: a * -0.6 });
   });
   // 7 創意戲劇：舞台
@@ -193,6 +195,7 @@ function inquiry(k, def) {
   k.at(5.2, 0, 5.2, -0.4, 1, () => {
     k.cone(1.25, 1.5, C.orange, -0.9, 0, 0, { seg: 4 });
     k.cone(1.15, 1.35, C.teal, 1.25, 0, -0.5, { seg: 4 });
+    k.door(-0.9, 0, 1.6);
     k.cyl(0.32, 0.1, C.stone2, 0.1, 0, 1.2); k.ball(0.14, C.orange, 0.1, 0.2, 1.2);
   });
   // 4 主題書展：書本拱門
@@ -281,6 +284,7 @@ function walk(k, def) {
     k.cyl(2.25, 0.5, C.tile, 0, 1.3, 0, { rt: 1.5, seg: 12 });
     k.cyl(1.4, 0.5, C.roof, 0, 1.8, 0, { rt: 0.5, seg: 12 });
     k.glow(0.8, 0.5, 0.05, C.win, 0, 0.3, 1.97);
+    k.door(0, 0, 2.6);
   });
   // 4 年級：三坑子老街 + 永福宮
   k.at(3.6, 0, 7.2, -0.2, 1, () => {
@@ -288,6 +292,7 @@ function walk(k, def) {
     k.box(8.2, 0.05, 1, '#c7bca6', -0.4, 0, 1.4, { wonk: 0.02 });
     k.at(4.5, 0, 0.4, -0.5, 1, () => {
       k.box(1.5, 0.9, 1.2, '#c9553b', 0, 0, 0);
+      k.door(0, 0, 1.1);
       k.roof(1.7, 0.5, 2, '#d3a03c', 0, 0.9, 0, { ry: Math.PI / 2 });
       k.glow(0.4, 0.5, 0.05, '#ff9a54', 0, 0.2, 0.62);
     });
@@ -351,6 +356,7 @@ function digital(k, def) {
   k.at(-8.6, 0, 1, 1, 0.8, () => {
     k.box(2, 1.2, 1.6, '#7b5a3e', 0, 0, 0);
     k.roof(1.9, 0.8, 2.4, '#3f7a4e', 0, 1.2, 0, { ry: Math.PI / 2 });
+    k.door(0, 0, 1.4);
     k.ball(0.2, C.red, -0.72, 0.42, 0.84); k.ball(0.14, C.gold, 0.7, 0.6, 0.84);
   });
   k.at(-4.6, 0, 5.8, 0.3, 1, () => {
@@ -421,6 +427,7 @@ function library(k, def) {
   k.at(0, 0, -3.2, 0, 1, () => {
     k.box(9, 3.2, 3.8, C.cream, 0, 0, 0, { ao: 0.84 });
     k.roof(4.3, 1.5, 9.6, C.roof2, 0, 3.2, 0, { ry: Math.PI / 2 });
+    k.door(0, 0, 2.7);
     for (let i = 0; i < 7; i++) {
       const c = [C.red, C.blue, C.gold, C.teal, C.purple, C.green, C.orange][i];
       k.box(0.86, 2.5, 0.2, c, -3.4 + i * 1.14, 0.2, 2);
@@ -456,6 +463,7 @@ function admin(k, def) {
   const dyn = [];
   k.at(1.4, 0, -2.6, 0, 1, () => {
     k.cyl(2.6, 0.7, C.stone, 0, 0, 0, { seg: 10 });
+    k.door(0, 0, 3.1);
     for (let i = 0; i < 6; i++) k.cyl(1.7 - i * 0.14, 1.34, i % 2 ? C.white : C.red, 0, 0.7 + i * 1.34, 0, { rt: 1.56 - i * 0.14, seg: 10, ao: 0.92 });
     k.cyl(1.2, 0.14, C.dark, 0, 8.74, 0, { seg: 10 });
     k.glow(0.86, 1, 0.86, '#ffe7a3', 0, 8.88, 0, { ry: 0.4 });
@@ -522,6 +530,7 @@ function teacher(k, def) {
     k.cyl(0.42, 2, C.brick2, 2.4, 2.8, -0.6, { seg: 6 });
     for (let i = 0; i < 4; i++) k.glow(0.86, 0.9, 0.05, C.win, -2.5 + i * 1.66, 0.74, 1.81);
     k.box(1, 1.5, 0.06, C.wood2, 0, 0, 1.82);
+    k.door(0, 0, 2.3);
   });
   // 煙囪上的齒輪
   const gear = (rad, col, sp, x, y, z) => {
@@ -575,6 +584,7 @@ function results(k, def) {
   // 頒獎台
   k.at(0, 0, 0, 0, 1, () => {
     k.box(2.4, 2, 2.4, C.gold, 0, 0, 0);
+    k.door(0, 0, 1.9);
     k.box(2.4, 1.3, 2.4, '#b8c0c8', -2.4, 0, 0.1);
     k.box(2.4, 0.86, 2.4, '#cd8a4f', 2.4, 0, 0.1);
     k.box(0.9, 0.4, 0.06, C.white, 0, 0.9, 1.21);
@@ -647,6 +657,7 @@ function forest(k, def) {
     k.roof(4.3, 1.5, 6.4, '#3f7a4e', 0, 2.3, 0, { ry: Math.PI / 2 });
     k.box(5.6, 0.2, 3.8, C.wood2, 0, 0, 0.26);
     k.box(1, 1.5, 0.1, C.wood3, 0, 0.2, 1.68);
+    k.door(0, 0, 2.5);
     k.glow(0.8, 0.8, 0.05, C.win, -1.7, 0.9, 1.68);
     k.glow(0.8, 0.8, 0.05, C.win, 1.7, 0.9, 1.68);
     // 彩繪：魔菇、瓢蟲、彩虹、蝴蝶
@@ -707,6 +718,7 @@ function brand(k, def) {
   // 鯉魚飛艇繫泊塔
   k.at(-1, 0, -2, 0, 1, () => {
     k.cyl(1.6, 0.4, C.stone, 0, 0, 0, { seg: 8 });
+    k.door(0, 0, 2.1);
     for (let i = 0; i < 4; i++) {
       const a = 0.785 + i * 1.57;
       k.box(0.16, 5.6, 0.16, C.wood2, Math.cos(a) * 0.72, 0.3, Math.sin(a) * 0.72);
@@ -764,6 +776,7 @@ function future(k, def) {
   // 石門校徽意象：兩道高聳石門與橘色幼苗
   k.at(0, 0, -2.4, 0, 1, () => {
     k.cyl(4, 0.5, C.stone, 0, 0, 0, { seg: 14 });
+    k.door(0, 0, 4.5);
     for (const s of [-1, 1]) {
       k.add(G.box(), '#b8c9d6', { x: s * 2, y: 3.5, sx: 1.5, sy: 6.4, sz: 1.1, rz: s * 0.1, ao: 0.82 });
       k.add(G.box(), '#a3b6c4', { x: s * 2.28, y: 7.1, sx: 1, sy: 1, sz: 1, rz: s * 0.1 });
@@ -809,5 +822,5 @@ export function buildIsland(def, gates = []) {
   }
   const rocksMesh = rocks.build();
   group.add(rocksMesh);
-  return { group, terrain, rocks: rocksMesh, anchors: k.anchors, dyn: info.dyn || [], walk: info.walk, moor: info.moor };
+  return { group, terrain, rocks: rocksMesh, anchors: k.anchors, doors: k.doors, dyn: info.dyn || [], walk: info.walk, moor: info.moor };
 }

@@ -96,11 +96,46 @@ export class People {
     this.crews.push(c);
   }
 
-  // 颱風天大家都待在室內，島上看不到人
-  setHidden(v) {
-    this.hidden = v;
-    for (const m of this.meshes) m.visible = !v;
-    this.glow.visible = !v;
+  // 颱風一來，每一隊撐著傘跑向最近的門口，到了門口才進屋（縮小淡出）；颱風走了再陸續從門口出來
+  setStorm(v) {
+    if (v === !!this.storm) return;
+    this.storm = v;
+    if (v) {
+      this.queue.length = 0;
+      for (const c of this.crews) this.shelter(c);
+      return;
+    }
+    for (const c of this.crews) {
+      if (c.state !== 'shelter' && c.state !== 'inside') continue;
+      const g = this.islands[c.here].group.position;
+      c.state = 'wait';
+      c.timer = 1.5 + this.r() * 5;
+      c.members.forEach((m) => { m.inside = false; m.goal = 'idle'; m.lx = m.x - g.x; m.lz = m.z - g.z; });
+    }
+  }
+
+  shelter(c) {
+    const is = this.islands[c.here];
+    const lead = c.members[0];
+    const g = is.group.position;
+    const x = lead.x - g.x, z = lead.z - g.z;
+    let door = null, best = Infinity;
+    for (const d of is.shelters) {
+      const dd = (d.x - x) ** 2 + (d.z - z) ** 2;
+      if (dd < best) { best = dd; door = d; }
+    }
+    if (!door) door = { x, z }; // 這座島沒有房子：原地躲進雨中
+    c.ball = null;
+    this.ballMesh.setMatrixAt(c.id, ZERO);
+    c.act = null;
+    const t = c.trail;
+    t.reset();
+    t.add(lead.x, is.base + is.nav.y(x, z), lead.z, this.index[c.here]);
+    this.walkOn(t, c.here, x, z, door.x, door.z);
+    c.s = 0;
+    c.state = 'shelter';
+    c.timer = 11; // 跑太久還沒到，也讓他們進屋，不要一直在風雨裡
+    c.members.forEach((m) => { m.goal = 'walk'; m.face = null; m.book = false; m.inside = false; });
   }
 
   buildMeshes(scene) {
@@ -358,6 +393,28 @@ export class People {
   }
 
   tick(c, t, dt) {
+    if (c.state === 'inside') return;
+    if (c.state === 'shelter') {
+      const tr = c.trail;
+      c.timer -= dt;
+      c.s = Math.min(tr.len + 4, c.s + c.speed * 2.3 * dt);
+      let all = true;
+      c.members.forEach((m, i) => {
+        const row = Math.ceil(i / 2), side = i === 0 ? 0 : (i % 2 ? 0.24 : -0.24);
+        const s = c.s - row * 0.72;
+        tr.at(s, here, this.bobs);
+        tr.at(s + 0.15, ahead, this.bobs);
+        const dx = ahead.x - here.x, dz = ahead.z - here.z, d = Math.hypot(dx, dz) || 1;
+        m.tx = here.x - (dz / d) * side * (s < tr.len ? 1 : 0);
+        m.tz = here.z + (dx / d) * side * (s < tr.len ? 1 : 0);
+        m.ty = here.y;
+        if (s >= tr.len && Math.hypot(m.x - m.tx, m.z - m.tz) < 0.35) m.inside = true;
+        if (c.timer <= 0) m.inside = true;
+        if (!m.inside) all = false;
+      });
+      if (all) c.state = 'inside';
+      return;
+    }
     if (c.state === 'wait') {
       c.timer -= dt;
       if (c.timer <= 0 && !this.queue.includes(c)) this.queue.push(c);
@@ -448,7 +505,8 @@ export class People {
       p.yaw = turn(p.yaw, Math.atan2(dx, dz), 1 - Math.exp(-dt * 10));
     } else {
       p.spd = 0;
-      if (p.face !== null) p.yaw = turn(p.yaw, p.face, 1 - Math.exp(-dt * 6));
+      const face = p.greet > 0 ? p.greetYaw : p.face;
+      if (face !== null && face !== undefined) p.yaw = turn(p.yaw, face, 1 - Math.exp(-dt * (p.greet > 0 ? 9 : 6)));
     }
     p.y += (p.ty - p.y) * (1 - Math.exp(-dt * 14));
     p.mode = p.spd > 0.2 ? 'walk' : p.goal === 'run' || p.goal === 'walk' ? 'idle' : p.goal;
@@ -512,6 +570,15 @@ export class People {
     if (holds) aR = -2.1;
     else if (huddle) aL = aR = -0.9;
     else if (this.wet) { aL = aR = -2.85; lean = Math.max(lean, 0.16); }
+    // 被點到的人轉向鏡頭打招呼：撐傘的用另一隻手揮，小朋友站著時會開心跳一下；颱風天趕路時身體前傾
+    if (p.greet > 0) {
+      p.greet -= dt;
+      const wave = -2.7 + Math.sin(t * 10 + p.ph) * 0.34;
+      if (holds) aL = wave; else aR = wave;
+      const hop = (1.6 - p.greet) * 7;
+      if (p.kind === 'student' && p.mode !== 'walk' && p.mode !== 'sit' && hop < Math.PI * 2) lift = Math.max(lift, Math.abs(Math.sin(hop)) * 0.26);
+    }
+    if (c.state === 'shelter' && p.mode === 'walk') lean = Math.max(lean, 0.3);
     // 手電筒拿在左手：走路照地上、看星星照天空、看書照書本
     const lamp = this.dark && p.lit && p.mode !== 'warm';
     if (lamp) aL = p.mode === 'gaze' ? -2.4 : p.mode === 'sit' ? -1 : -1.35;
@@ -642,9 +709,10 @@ export class People {
 
   update(t, dt, env, islands) {
     this.ids.forEach((id, i) => { this.bobs[i] = islands[id].group.position.y - islands[id].base; });
+    this.env = env;
     this.react(env);
     const ratio = { all: 1, few: 0.45, none: 0.3 }[env.kidsVisible] ?? 1;
-    if (dt && this.queue.length) this.depart(this.queue.shift());
+    if (dt && this.queue.length && !this.storm) this.depart(this.queue.shift());
     for (const c of this.crews) {
       c.on = c.rank < ratio || c === this.followed;
       if (dt) { this.tick(c, t, dt); this.props(c, t, dt); }
@@ -653,7 +721,7 @@ export class People {
     for (const p of this.list) {
       this.move(p, dt);
       if (dt) this.pose(p, t, dt);
-      p.vis += ((p.crew.on ? 1 : 0) - p.vis) * k;
+      p.vis += ((p.crew.on && !p.inside ? 1 : 0) - p.vis) * k;
       this.draw(p, t);
     }
     for (const m of [this.torso, this.head, this.hairA, this.hairB, this.arms, this.legs, this.pack, this.bookMesh, this.flagMesh, this.ballMesh, this.umbrella, this.torch, this.beam, this.spot, this.logs, this.flame, this.puddle, this.ring]) m.instanceMatrix.needsUpdate = true;
@@ -690,17 +758,44 @@ export class People {
 
   headOf(p, out) { return out.set(p.x, p.y + p.lift * p.s + 1.32 * p.s * (p.kind === 'teacher' ? 1.18 : 1), p.z); }
 
+  greet(p, camera) {
+    p.greet = 1.6;
+    p.greetYaw = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
+  }
+
+  // 現在的天氣與時間：颱風、雨天、夜晚、黃昏、陰天、白天
+  sky() {
+    const env = this.env || {};
+    return this.storm ? 'storm' : this.wet ? 'rain' : this.dark ? 'night' : env.dusk ? 'dusk' : env.cloud >= 0.6 ? 'cloudy' : 'day';
+  }
+
+  // 同一個人連續點，話題一層一層換：先說正在做的事，再聊天氣，最後介紹這座島；同一句不會連續出現
   lineOf(p) {
     const c = p.crew;
+    const layer = (p.talks = (p.talks || 0) + 1) % 3;
+    const say = (set) => {
+      const pool = set?.length > 1 ? set.filter((s) => s !== p.last) : set;
+      if (!pool?.length) return null;
+      p.last = this.pick(pool);
+      return p.last;
+    };
+    if (c.state === 'shelter') return say(PEOPLE_LINES.shelter[p.kind]);
+    const weather = PEOPLE_LINES.weather[this.sky()]?.[p.kind];
+    if (layer === 2) return say(weather) || this.actLine(p);
+    if (layer === 0) return say(PEOPLE_LINES.island[c.here]) || say(weather);
+    return this.actLine(p, say) || say(weather);
+  }
+
+  actLine(p, say = (set) => this.pick(set)) {
+    const c = p.crew;
+    if (c.state === 'travel' || c.state === 'wait') return say(PEOPLE_LINES.travel[p.kind]);
     if (c.state === 'play') {
       const lead = p.slot === 0;
       const key = { lesson: lead ? 'teach' : 'listen', rainclass: lead ? 'rainteach' : 'rainlisten', stars: c.teacher && lead ? 'starteach' : 'stars' }[c.act] || c.act;
       const set = PEOPLE_LINES.act[key];
-      if (set) return this.pick(set);
+      if (set) return say(set);
     }
-    if (this.wet) return this.pick(PEOPLE_LINES.rain);
-    if (this.dark) return this.pick(PEOPLE_LINES.night);
-    return this.pick(PEOPLE_LINES.island[c.here]);
+    return null;
   }
 
   guide() {
@@ -713,6 +808,8 @@ export class People {
     const place = names[c.here];
     if (c.state === 'travel') return c.here === c.to ? `正在${place}逛逛` : `正從${place}走向${names[c.to]}`;
     if (c.state === 'wait') return `在${place}準備出發`;
+    if (c.state === 'shelter') return `颱風來了，正趕快跑進屋裡（${place}）`;
+    if (c.state === 'inside') return `在屋裡躲颱風（${place}）`;
     return `${{ lesson: '老師正在講解', read: '大家坐下來看書', ball: '大家在傳球', tag: '大家在玩鬼抓人', jump: '大家開心跳起來', wave: '正在和大家揮手', rainclass: '老師撐著傘繼續上課', puddle: '大家在踩水窪', huddle: '大家擠在同一把大傘下', catch: '正在伸手接雨滴', stars: '大家抬頭看星星', camp: '大家圍著營火聊天', flash: '大家拿手電筒玩光束遊戲', patrol: '老師拿手電筒巡視', nightread: '打開手電筒安靜看書' }[c.act] ?? '正在休息'}（${place}）`;
   }
 }
@@ -746,5 +843,9 @@ function glowTexture() {
 }
 
 export function buildNav(islands, defs) {
-  for (const [id, is] of Object.entries(islands)) is.nav = new NavGrid(defs[id], is.terrain, is.anchors, is.walk);
+  for (const [id, is] of Object.entries(islands)) {
+    is.nav = new NavGrid(defs[id], is.terrain, is.anchors, is.walk);
+    // 門口對到最近的可走格子，颱風來時大家跑到這裡進屋
+    is.shelters = (is.doors || []).map((d) => is.nav.nearest(d.x, d.z)).filter((c) => c >= 0).map((c) => ({ x: is.nav.cx(c), z: is.nav.cz(c) }));
+  }
 }
