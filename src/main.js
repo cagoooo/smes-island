@@ -172,7 +172,7 @@ function openModal(html, wide = false, peek = false) {
   d.innerHTML = html;
   delete d.dataset.lock;
   $('#modal').classList.toggle('peek', peek);
-  if (peek || was) $('#watch').classList.toggle('away', peek || !!S.island);
+  if (peek || was) { $('#watch').classList.toggle('away', peek || !!S.island); paintWatch(); }
   $('#modal').classList.add('open');
   $('.round[data-act="modalClose"]', d)?.focus();
   if (peek) requestAnimationFrame(() => world?.setInset(isMobile() ? 0 : (d.offsetWidth + 14) / 2, isMobile() ? d.offsetHeight / 2 - 10 : 0));
@@ -183,6 +183,7 @@ function closeModal() {
   $('#modal').classList.remove('open', 'peek');
   if (!was) return;
   $('#watch').classList.toggle('away', !!S.island);
+  paintWatch();
   updateInset();
 }
 const dialogHead = (title) => `<div class="dialog-head"><h2>${esc(title)}</h2><button class="round" data-act="modalClose" aria-label="關閉">×</button></div>`;
@@ -381,6 +382,8 @@ function startStroll(crew) {
   if (S.listing) setList(false);
   S.walking = true;
   document.body.classList.add('walking');
+  document.body.classList.remove('watch-force');
+  paintWatch();
   $('#walkbar').hidden = false;
   $('#strollBtn').textContent = '結束逛島';
   syncView('');
@@ -392,6 +395,7 @@ function stopStroll(home = false) {
   if (!S.walking) return;
   S.walking = false;
   document.body.classList.remove('walking');
+  paintWatch();
   $('#walkbar').hidden = true;
   $('#strollBtn').textContent = '跟著逛島';
   world.unfollow();
@@ -448,6 +452,7 @@ function openIsland(id, { tab = 0, fly = true, push = true, keepSheet = false } 
   document.body.classList.add('reading');
   panel.setAttribute('aria-hidden', 'false');
   $('#watch').classList.add('away');
+  paintWatch();
   $('#hint').hidden = true;
   Object.entries(plates).forEach(([k, p]) => p.classList.toggle('off', k !== id || isMobile()));
   if (world) {
@@ -492,9 +497,17 @@ function setWatch(on, quiet = false) {
   if (!on && !quiet) toast('瞭望台收起來了，下方工具列「瞭望台」可以再打開');
 }
 
-function paintWatch() {
+// 瞭望台在畫面上看不看得到：逛島、導覽時預設藏起來，孩子自己打開（watch-force）才出現
+const watchSeen = () => {
   const w = $('#watch');
   const on = isMobile() ? w.classList.contains('opened') : !w.classList.contains('shut');
+  // 島嶼介紹、閱讀挑戰、清單開著時瞭望台會讓位（away），也算看不到
+  if (w.classList.contains('away') || S.listing) return false;
+  return on && (!(S.walking || S.touring) || document.body.classList.contains('watch-force'));
+};
+
+function paintWatch() {
+  const on = watchSeen();
   const b = $('#watchBtn');
   b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', on);
@@ -535,6 +548,7 @@ function closeIsland(push = true) {
   document.body.classList.remove('reading');
   $('#panel').setAttribute('aria-hidden', 'true');
   $('#watch').classList.remove('away');
+  paintWatch();
   $('#hint').hidden = false;
   Object.values(plates).forEach((p) => p.classList.remove('off'));
   clearPins();
@@ -653,6 +667,8 @@ function startTour() {
   if (S.listing) setList(false, false);
   S.touring = true; S.tourPaused = false; S.tourIdx = 0;
   document.body.classList.add('touring');
+  document.body.classList.remove('watch-force');
+  paintWatch();
   $('#tourbar').hidden = false;
   $('#tPause').textContent = '暫停';
   $('#tourBtn').textContent = '結束導覽';
@@ -663,6 +679,7 @@ function startTour() {
 function stopTour(home = false) {
   S.touring = false;
   document.body.classList.remove('touring');
+  paintWatch();
   $('#tourbar').hidden = true;
   $('#tourBtn').textContent = '島嶼導覽';
   updateInset();
@@ -1211,11 +1228,19 @@ const actions = {
   qrBig() { $('#dialog').classList.toggle('qr-big'); },
   log() { showLog(); },
   honors() { showHonors(); },
+  // 跟著逛島、導覽時瞭望台原本會藏起來，孩子主動按了就讓它出現；被島嶼介紹、清單擋住時說明原因
   watch() {
-    if (!isMobile()) { setWatch($('#watch').classList.contains('shut')); return; }
-    const on = $('#watch').classList.toggle('opened');
-    if (!S.island) $('#hint').hidden = on;
-    paintWatch();
+    const w = $('#watch');
+    const on = !watchSeen();
+    document.body.classList.toggle('watch-force', on && (S.walking || S.touring));
+    if (isMobile()) {
+      w.classList.toggle('opened', on);
+      if (!S.island) $('#hint').hidden = on;
+      paintWatch();
+    } else setWatch(on, true);
+    const why = !on ? '' : S.listing ? '清單' : S.island ? '島嶼介紹' : $('#modal').classList.contains('peek') ? '閱讀挑戰' : '';
+    if (why) toast(`${why}開著時，瞭望台會先讓位，關掉${why}就看得到`);
+    else toast(on ? '瞭望台打開了：水庫水位、校園公告、今日書語都在這裡' : '瞭望台收起來了，再按一次「瞭望台」就能打開');
   },
   res() { openIsland('walk', { tab: 2 }); },
   tour() { if (S.touring) stopTour(true); else startTour(); },

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.23.0",
-  "releaseNotes": "颱風天跑進屋時會喊出防颱提醒，進屋後點門口的對話泡泡能聽屋裡在聊什麼",
+  "version": "1.23.1",
+  "releaseNotes": "修正跟著逛島、島嶼導覽時按「瞭望台」沒有反應",
   "type": "module",
   "scripts": {
     "dev": "vite",

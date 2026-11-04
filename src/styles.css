@@ -445,6 +445,8 @@ body.listing .watch, body.listing .hintcard, body.listing .credit, body.listing 
 body.listing .labels { display: none; }
 body.touring .watch, body.touring .hintcard { display: none; }
 body.walking .watch, body.walking .hintcard { display: none; }
+/* 逛島、導覽時孩子自己打開瞭望台，就讓它出現 */
+body.watch-force.walking .watch, body.watch-force.touring .watch { display: flex; }
 body.listing .walkbar { display: none; }
 
 /* 工具列放不下時可左右滑（觸控滑動、滑鼠滾輪、滑鼠拖曳、兩端箭頭）；放得下時由兩端的 auto 邊距維持置中，避免最左邊的按鈕被切掉。
