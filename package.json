@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.18.4",
-  "releaseNotes": "尋河馬達人 11 月 11 日（三）起，帶證書到校長室兌換小客人招待券",
+  "version": "1.19.0",
+  "releaseNotes": "右上角新增「變天氣」：一次看到七種天氣，雨天、颱風、黃昏、夜晚的群島都不一樣",
   "type": "module",
   "scripts": {
     "dev": "vite",

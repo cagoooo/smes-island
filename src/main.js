@@ -45,8 +45,14 @@ $('#app').innerHTML = `
   <div class="liveinfo card" id="liveinfo">
     <div class="date"><strong id="dDate"></strong><span id="dWeek"></span></div><span class="sep"></span>
     <div class="wx" id="wx"><i>⛅</i><div><strong>讀取天氣中…</strong><span>龍潭石門</span></div></div>
+    <button class="wx-magic" id="wxMagic" data-act="wxMenu" aria-haspopup="dialog" aria-expanded="false" title="換個天氣看看群島的變化"><b aria-hidden="true">🪄</b><span>變天氣</span></button>
   </div>
 </header>
+<div class="wx-pop card" id="wxPop" role="dialog" aria-label="換個天氣看看" hidden>
+  <div class="wx-pop-head"><strong>換個天氣看看</strong><button class="round" data-act="wxMenu" aria-label="關閉">×</button></div>
+  <div class="wx-grid" id="wxGrid"></div>
+  <p class="wx-note">每種天氣的畫面、人物、配樂和環境音都不一樣，記得打開音樂哦！</p>
+</div>
 
 <aside class="watch card" id="watch" aria-label="雲端瞭望台">
   <div class="watch-head"><span class="pulse"></span><h2>雲端瞭望台</h2><button class="round" data-act="watch" aria-label="收起雲端瞭望台" title="收起瞭望台，群島畫面更乾淨">×</button></div>
@@ -103,7 +109,7 @@ $('#app').innerHTML = `
     <button data-act="pause" id="pauseBtn">暫停</button>
     <button data-act="music" id="musicBtn" aria-pressed="true">音樂</button>
     <button data-act="sfx" id="sfxBtn" aria-pressed="true">音效</button>
-    <button data-act="time" id="timeBtn" title="切換時間">即時</button>
+    <button data-act="time" id="timeBtn" title="換天氣、換時間">天氣・即時</button>
     <button class="on desk-only" data-act="tilt" id="tiltBtn" title="微縮移軸特效">移軸</button>
     <button data-act="log">日誌</button>
     <button data-act="watch" id="watchBtn" aria-pressed="true" title="顯示或收起雲端瞭望台">瞭望台</button>
@@ -850,11 +856,65 @@ function paintClock() {
   $('#dWeek').textContent = `${f.week}・${f.time}`;
 }
 
+// 天氣魔法：七種天氣與時間，每一種的畫面、人物和配樂都不同，說明寫給孩子看
+const TIMES = [
+  { k: 'live', n: '即時', i: '📡', d: '跟著石門現在的天氣和時間自動變化' },
+  { k: 'day', n: '白天', i: '☀️', d: '陽光灑在十二座浮空島上' },
+  { k: 'cloudy', n: '陰天', i: '☁️', d: '雲層變厚，配樂換成陰天的曲子' },
+  { k: 'rain', n: '雨天', i: '🌧️', d: '孩子撐傘踩水窪，魚兒開心跳出水面' },
+  { k: 'typhoon', n: '颱風', i: '🌀', d: '雲海下的颱風在旋轉，大家都躲進屋裡' },
+  { k: 'dusk', n: '黃昏', i: '🌇', d: '天空換上黃昏的顏色和配樂' },
+  { k: 'night', n: '夜晚', i: '🌙', d: '拿著手電筒看星星，圍著營火聽故事' },
+];
+const timeOf = (k) => TIMES.find((t) => t.k === k) || TIMES[0];
+
+function paintTime() {
+  const t = timeOf(S.time);
+  $('#timeBtn').textContent = `天氣・${t.n}`;
+  $('#wxMagic span').textContent = S.time === 'live' ? '變天氣' : `${t.n}預覽`;
+  $('#wxMagic').classList.toggle('preview', S.time !== 'live');
+  $('#wxGrid').innerHTML = TIMES.map((x) => `<button class="wx-opt${x.k === S.time ? ' on' : ''}" data-act="wxSet" data-time="${x.k}" aria-pressed="${x.k === S.time}">`
+    + `<i aria-hidden="true">${x.i}</i><strong>${x.n}</strong><span>${x.k === 'live' && S.weather ? `現在${esc(S.weather.label)} ${S.weather.temp}°C，` : ''}${x.d}</span></button>`).join('');
+}
+
+function setTime(k) {
+  S.time = k;
+  world?.setTimeMode(['rain', 'cloudy', 'typhoon'].includes(k) ? 'day' : k);
+  if (k === 'typhoon') world?.setWeather({ storm: true });
+  else if (k === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8, storm: false });
+  else if (k === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0, storm: false });
+  else if (k !== 'live') world?.setWeather({ cloud: 0.1, rain: 0, storm: false });
+  else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain, storm: !!liveStorm()?.scene });
+  paintStorm();
+  paintTime();
+  if (k === 'typhoon') toast('颱風來了！雲海下的颱風正在旋轉，大家都躲進屋裡了');
+  else if (k === 'rain') toast('下雨了！孩子們撐傘踩水窪，魚兒開心得跳出水面');
+  else if (k === 'night') toast('夜深了，留下來的孩子拿著手電筒看星星、圍著營火聽故事');
+  else if (k === 'live') toast('回到即時天氣，群島跟著石門現在的天氣變化');
+  else toast(`換成${timeOf(k).n}囉！${timeOf(k).d}`);
+}
+
+// 面板貼在天氣卡片下方；手機改從工具列上方升起
+function wxOpen(open) {
+  const pop = $('#wxPop');
+  pop.hidden = !open;
+  $('#wxMagic').setAttribute('aria-expanded', open);
+  if (!open) return;
+  paintTime();
+  store.set('smes-wx-seen', true);
+  $('#wxMagic').classList.remove('hint');
+  if (isMobile()) { pop.style.top = ''; pop.style.right = ''; return; }
+  const r = $('#liveinfo').getBoundingClientRect();
+  pop.style.top = `${Math.round(r.bottom + 8)}px`;
+  pop.style.right = `${Math.max(10, Math.round(window.innerWidth - r.right))}px`;
+}
+
 function paintWeather() {
   const w = S.weather;
   if (!w) return;
   const air = S.air ? `・空品${S.air.level}` : '';
   $('#wx').innerHTML = `<i>${w.icon}</i><div><strong>${esc(w.label)} ${w.temp}°C</strong><span>${w.min}°～${w.max}°・降雨 ${w.pop}%${air}</span></div>`;
+  if (!$('#wxPop').hidden) paintTime();
   $('#liveinfo').title = `體感 ${w.feels}°C・濕度 ${w.humidity}%・風速 ${Math.round(w.wind)} km/h${S.air ? `・AQI ${S.air.aqi}（美國標準）・PM2.5 ${S.air.pm25}` : ''}｜龍潭區石門`;
 }
 
@@ -959,22 +1019,9 @@ const actions = {
     if (S.arcs) showLinksInfo();
   },
   pause(el) { S.paused = !S.paused; el.textContent = S.paused ? '播放' : '暫停'; world?.setPaused(S.paused); },
-  time(el) {
-    const seq = [['live', '即時'], ['day', '白天'], ['cloudy', '陰天'], ['rain', '雨天'], ['typhoon', '颱風'], ['dusk', '黃昏'], ['night', '夜晚']];
-    const i = (seq.findIndex((s) => s[0] === S.time) + 1) % seq.length;
-    S.time = seq[i][0];
-    el.textContent = seq[i][1];
-    world?.setTimeMode(['rain', 'cloudy', 'typhoon'].includes(S.time) ? 'day' : S.time);
-    if (S.time === 'typhoon') world?.setWeather({ storm: true });
-    else if (S.time === 'rain') world?.setWeather({ cloud: 0.85, rain: 0.8, storm: false });
-    else if (S.time === 'cloudy') world?.setWeather({ cloud: 0.9, rain: 0, storm: false });
-    else if (S.time !== 'live') world?.setWeather({ cloud: 0.1, rain: 0, storm: false });
-    else if (S.weather) world?.setWeather({ cloud: S.weather.cloud, rain: S.weather.rain, storm: !!liveStorm()?.scene });
-    paintStorm();
-    if (S.time === 'typhoon') toast('颱風來了！雲海下的颱風正在旋轉，大家都躲進屋裡了');
-    if (S.time === 'rain') toast('下雨了！孩子們撐傘踩水窪，魚兒開心得跳出水面');
-    if (S.time === 'night') toast('夜深了，留下來的孩子拿著手電筒看星星、圍著營火聽故事');
-  },
+  time() { wxOpen($('#wxPop').hidden); },
+  wxMenu() { wxOpen($('#wxPop').hidden); },
+  wxSet(t) { setTime(t.dataset.time); wxOpen(false); },
   tilt(el) { const v = !world.tilt; world.setTilt(v); el.classList.toggle('on', v); },
   modalClose() { closeModal(); },
   finaleClose() { closeFinale(); },
@@ -1114,6 +1161,7 @@ window.addEventListener('pointermove', (e) => {
 window.addEventListener('pointerup', () => { if (lbDrag) lbDrag.on = false; });
 
 document.addEventListener('click', (e) => {
+  if (!$('#wxPop').hidden && !e.target.closest('#wxPop,#wxMagic,#timeBtn')) wxOpen(false);
   const t = e.target.closest('button,a');
   if (!t) { if (e.target.id === 'modal' && !$('#dialog').dataset.lock) closeModal(); if (e.target.id === 'lb') actions.lbClose(); return; }
   const d = t.dataset;
@@ -1158,7 +1206,8 @@ document.addEventListener('change', (e) => { if (e.target.id === 'qrPick') showQ
 window.addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea')) return;
   if (e.key === 'Escape') {
-    if ($('#lb').classList.contains('open')) actions.lbClose();
+    if (!$('#wxPop').hidden) wxOpen(false);
+    else if ($('#lb').classList.contains('open')) actions.lbClose();
     else if ($('#modal').classList.contains('open')) closeModal();
     else if (S.touring) stopTour(true);
     else if (S.walking) stopStroll(true);
@@ -1303,7 +1352,8 @@ async function boot() {
   initUpdate();
   sheet.init($('#panel'), isMobile, onSheet);
   initDock();
-  paintQuote(); paintClock(); setHint();
+  paintQuote(); paintClock(); setHint(); paintTime();
+  if (!store.get('smes-wx-seen', false)) $('#wxMagic').classList.add('hint'); // 還沒用過天氣魔法的訪客，按鈕會輕輕發亮提示
   setWatch(store.get('smes-watch', true), true);
   music.init({ want: store.get('smes-music', true), sfx: store.get('smes-sfx', true), onChange: paintMusic, onStart: musicTip, onSfx: paintSfx });
   paintMusic(music.want);

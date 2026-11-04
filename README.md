@@ -6,7 +6,7 @@
 - 技術：Vite + Three.js（幾何全部由程式產生，不需外部 3D 模型）
 - 內容：`src/data/content.json` 由 `scripts/build-content.py` 從方案 docx 產生；群島結構與文案在 `src/data/site.js`
 - 公告：`.github/workflows/update-news.yml` 於台灣時間 07:03～19:53 排定每 10 分鐘抓取校網公告，寫入 `live-data` 分支；GitHub 排程常延遲數小時或被略過，實際更新頻率以 Actions 紀錄為準。學校電腦另有 Windows 工作排程「石門品牌群島公告同步」，開機時於 07:05～20:05 每 30 分鐘觸發一次（`%USERPROFILE%\.smes-island`），急用時可手動執行
-- 人物：`src/world/people.js` 控制老師與學生的隊伍和活動，下雨與入夜會換成撐傘、踩水窪、手電筒、觀星、營火，工具列時間鈕的「雨天」可預覽；`src/world/nav.js` 在載入時由島嶼幾何算出可走地面，改動島上擺設不用另外維護路線
+- 人物：`src/world/people.js` 控制老師與學生的隊伍和活動，下雨與入夜會換成撐傘、踩水窪、手電筒、觀星、營火，右上角天氣卡片的「變天氣」可以切換即時、白天、陰天、雨天、颱風、黃昏、夜晚預覽（工具列「天氣」鈕也能打開）；`src/world/nav.js` 在載入時由島嶼幾何算出可走地面，改動島上擺設不用另外維護路線
 - 登島人次：`src/ui/visits.js` 透過 Firestore 累計，專案 `smes-brand-island`（個人帳號 cagooo@gmail.com），規則在 `firestore.rules`，只允許讀取與加 1；金鑰放 `.env` 與 GitHub Secrets
 - 魚：`src/world/life.js` 控制天空的雲魚與小魚群，`src/world/rain-fish.js` 控制島上水池的魚、雨圈與水花，下雨時動作都會變得更活潑
 - 小河馬：`src/world/hippo-fx.js` 負責場景特效，`src/ui/hippo.js` 負責卡片、圖鑑與集滿慶祝，名字與台詞在 `src/data/site.js` 的 `HIPPOS`
