@@ -705,7 +705,7 @@ async function showCert(level) {
   const info = certInfo.get();
   if (!info) { showCertForm(level); return; }
   const fresh = issue(level, '', '', level === 'M' ? challenge.get().score : 0);
-  sendCerts();
+  const moved = sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
     <p class="cert-tip">把證書存起來或印出來，帶到校長室領取獎勵！手機也可以長按圖片儲存</p>
@@ -722,6 +722,19 @@ async function showCert(level) {
   } catch {
     $('#certView').innerHTML = '<p>證書製作失敗，請檢查網路後再試一次。</p>';
   }
+  // 以前在別台電腦領過同一張證書：改成第一次的日期和編號再畫一次，免得校長室看到兩張不同編號
+  if (!(await moved).includes(String(level)) || !$('#certSave')?.download.includes(TIERS[level].title)) return;
+  const first = certInfo.get();
+  const [, m, d] = first.dates[level].split('-');
+  try {
+    const blob = await drawCert(level, first);
+    if (certUrl) URL.revokeObjectURL(certUrl);
+    certUrl = URL.createObjectURL(blob);
+    $('#certView').innerHTML = `<img src="${certUrl}" alt="${esc(`${first.cls} ${first.name} 的${TIERS[level].title}證書`)}">`;
+    $('#certSave').href = certUrl;
+    $('#certSave').hidden = false;
+  } catch { /* 留著剛才那張 */ }
+  $('.cert-tip').innerHTML = `你在 <b>${+m} 月 ${+d} 日</b>就領過這張證書了，證書改用第一次領取的日期和編號，帶哪一張到校長室都一樣哦！`;
 }
 
 // ───────── 第三段：島嶼閱讀挑戰 ─────────

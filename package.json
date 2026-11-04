@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.18.2",
-  "releaseNotes": "證書畫面新增「關閉證書，繼續闖關」按鈕，平板橫放時不用往下捲就看得到",
+  "version": "1.18.3",
+  "releaseNotes": "換電腦或隔天重玩時，同一張證書沿用第一次的日期和編號，校長室名單不再重複",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -157,14 +157,29 @@ function statsTable(sh) {
   sh.getRange(2, 1, rows.length, 5).setFormulas(rows.map((r) => r.map((c) => (String(c).startsWith('=') ? c : `="${c}"`))));
 }
 
+// 名單裡同一位孩子可能有好幾筆（舊版隔天重玩會再記一次），另外算不重複的人數給校長室備獎
+const PEOPLE = '領證人數（不重複）';
+function peopleRows(sh) {
+  const q = `'${LIST}'`;
+  const uniq = (c) => `=IFERROR(COUNTUNIQUE(FILTER(${q}!D2:D&"|"&${q}!E2:E,${q}!C2:C=${c}1,${q}!E2:E<>"")),0)`;
+  sh.getRange('A12:E13').setFormulas([
+    [`="${PEOPLE}"`, ...['B', 'C', 'D'].map(uniq), '=B12+C12+D12'],
+    ['="重複的筆數"', '=B2-B12', '=C2-C12', '=D2-D12', '=B13+C13+D13'],
+  ]);
+  sh.getRange('A12:E12').setFontWeight('bold').setBackground('#e7f1e1');
+  sh.getRange('A13').setNote('同一位孩子同一種證書出現兩次以上的筆數；領取名單裡會標成紅色');
+}
+
 function setupStats(ss) {
   const old = ss.getSheetByName(STATS);
   if (old) {
     if (old.getRange('D1').getValue() !== TITLES.M) statsTable(old);
+    if (old.getRange('A12').getValue() !== PEOPLE) peopleRows(old);
     return;
   }
   const sh = ss.insertSheet(STATS);
   statsTable(sh);
+  peopleRows(sh);
   sh.getRange('F1').setValue('各班人次');
   sh.getRange('F2').setFormula(classFormula());
   sh.getRange('F1').setFontWeight('bold');
@@ -401,9 +416,9 @@ function doPost(e) {
     const sh = SpreadsheetApp.getActive().getSheetByName(LIST);
     const last = sh.getLastRow();
     if (last > 1) {
-      // 編號只有四碼，要連同班級姓名一起比對，才不會把不同的孩子當成重複
-      const dup = sh.getRange(2, 2, last - 1, 4).getDisplayValues().some((r) => r[0] === d.code && r[2] === cls && r[3] === name);
-      if (dup) return json({ ok: true, dup: true });
+      // 同一位孩子同一種證書只記一筆：電腦教室常換電腦、隔天重玩又領一次，回傳第一次的編號讓網站改用原本的日期
+      const same = sh.getRange(2, 2, last - 1, 4).getDisplayValues().find((r) => r[1] === TITLES[level] && r[2] === cls && r[3] === name);
+      if (same) return json({ ok: true, dup: true, code: same[0] });
     }
     const row = last + 1;
     sh.getRange(row, 1, 1, 5).setValues([[new Date(), d.code, TITLES[level], cls, name]]);

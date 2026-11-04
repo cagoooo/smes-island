@@ -33,22 +33,36 @@ export function issue(level, cls, name, score) {
 
 export const validName = (s) => /^[\p{L}\p{M}·‧．]{1,12}$/u.test(s);
 
-// 送不出去不影響孩子拿證書，下次開網站再補送；後端用編號與姓名去除重複
+// 編號開頭是民國日期：1151103-6-XXXX → 2026-11-03
+const dateOfCode = (code) => {
+  const m = /^(\d{3})(\d{2})(\d{2})-/.exec(code || '');
+  return m ? `${+m[1] + 1911}-${m[2]}-${m[3]}` : '';
+};
+
+// 送不出去不影響孩子拿證書，下次開網站再補送；同一位孩子以前領過同一張，就改回第一次的日期，證書編號才會和名單一致
+// 回傳日期被改掉的證書，讓畫面重畫
 export async function sendCerts() {
   const info = certInfo.get();
-  if (!info || !import.meta.env.PROD || location.hostname === 'localhost') return;
+  const moved = [];
+  if (!info || !import.meta.env.PROD || location.hostname === 'localhost') return moved;
   info.sent ||= {};
   for (const level of Object.keys(info.dates)) {
     if (info.sent[level]) continue;
     try {
       const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ level, cls: info.cls, name: info.name, date: info.dates[level], code: serial(level, info) }) });
       const r = await res.json();
+      const first = r.dup && dateOfCode(r.code);
+      if (first && first !== info.dates[level]) {
+        info.dates[level] = first;
+        moved.push(level);
+      }
       if (r.ok || r.error === 'invalid' || r.error === 'code') {
         info.sent[level] = true; // 資料格式不對時重送也不會過，不要一直試
         certInfo.set(info);
       }
     } catch { /* 網路不通時留待下次補送 */ }
   }
+  return moved;
 }
 
 function serial(level, info) {
