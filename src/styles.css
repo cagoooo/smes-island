@@ -119,6 +119,11 @@ small { font-size: .92em; }
 .tile { display: block; width: 100%; text-align: left; padding: 10px 12px; background: var(--paper-2); border-radius: var(--r-sm); }
 button.tile:hover { background: var(--paper-3); }
 .tile h3 { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-3); margin-bottom: 4px; letter-spacing: .03em; }
+.quote-tile { display: none; }
+/* 頂部放不下整句書語的寬度（含 1366 電腦教室螢幕），書語改放瞭望台 */
+@media (max-width: 1399px) { .topbar .quote { display: none; } .quote-tile { display: block; } }
+.quote-tile blockquote { margin: 0; font-family: var(--font-display); font-size: var(--fs-sm); line-height: 1.45; }
+.quote-tile cite { display: block; margin-top: 2px; font-style: normal; font-family: var(--font-body); font-size: var(--fs-xs); color: var(--ink-3); }
 .res-row { display: flex; align-items: center; gap: 12px; }
 .gauge { position: relative; width: 26px; height: 58px; flex: none; border-radius: 7px; background: #dcebf0; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--lake); }
 .gauge i { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(#4db0d4, var(--lake)); transition: height .9s; }

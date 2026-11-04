@@ -58,6 +58,7 @@ $('#app').innerHTML = `
   <div class="watch-head"><span class="pulse"></span><h2>雲端瞭望台</h2><button class="round" data-act="watch" aria-label="收起雲端瞭望台" title="收起瞭望台，群島畫面更乾淨">×</button></div>
   <div class="watch-body">
     <p class="status-line" id="schoolState"></p>
+    <div class="tile quote-tile"><h3>今日書語</h3><blockquote id="quoteTile"></blockquote><button class="watch-link" data-act="quote">換一句 ›</button></div>
     <button class="tile" data-act="res"><h3>石門水庫即時</h3><div class="res-row"><div class="gauge"><i data-res-fill style="height:0"></i></div><div class="res-num"><strong data-res-level>讀取中…</strong><p data-res-note></p></div></div></button>
     <div class="tile"><h3>校園公告</h3><div class="ticker" id="newsTicker"><span class="tick"><span>讀取公告中…</span></span></div><button class="watch-link" data-act="log">看全部公告 ›</button></div>
     <div class="tile"><h3>榮譽榜</h3><div class="ticker" id="honorTicker"></div><button class="watch-link" data-act="honors">看完整榮譽榜 ›</button></div>
@@ -407,6 +408,17 @@ function paintWatch() {
 }
 window.addEventListener('resize', paintWatch);
 window.addEventListener('resize', updateInset);
+
+// 頂部列會因書語長短、字型載入而變高，瞭望台跟著往下讓，標題才不會被蓋住；手機的瞭望台在下方，不用調
+function fitWatch() {
+  const w = $('#watch');
+  if (isMobile()) { w.style.top = ''; w.style.maxHeight = ''; return; }
+  const top = Math.round($('.topbar').getBoundingClientRect().bottom + 8);
+  w.style.top = `${top}px`;
+  w.style.maxHeight = `calc(100dvh - ${top + 84}px)`;
+}
+new ResizeObserver(fitWatch).observe($('.topbar'));
+window.addEventListener('resize', fitWatch);
 
 // 收合時鏡頭退遠看整座島，拉回來才恢復近看
 function onSheet(state, prev) {
@@ -847,7 +859,8 @@ function showLinksInfo() {
 let quoteIdx = Math.floor(Date.now() / 86400000) % QUOTES.length;
 function paintQuote() {
   const q = QUOTES[quoteIdx];
-  $('#quote').innerHTML = `${esc(q.text)}<cite>${esc(q.by)}</cite>`;
+  // 寬螢幕放在頂部，平板和手機頂部放不下，改放在雲端瞭望台裡
+  $('#quote').innerHTML = $('#quoteTile').innerHTML = `${esc(q.text)}<cite>${esc(q.by)}</cite>`;
 }
 
 function paintClock() {
