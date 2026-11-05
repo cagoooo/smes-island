@@ -8,8 +8,9 @@ const GUIDE = '出題說明';
 const OVERVIEW = '題庫總覽';
 const CHECK = '檢查';
 const DUP = '重複紀錄';
+const ROSTER = '全校名冊';
 const OK = '✔ 會出題';
-const HEAD = ['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '排序'];
+const HEAD = ['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '排序', '名冊比對'];
 const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人', M: '尋河馬達人' };
 const BANK_HEAD = ['停用', '年段', '島嶼', '情境（可空白）', '題目', '選項A', '選項B', '選項C', '選項D', '答案', '解說', '出題者'];
 const ANY = '不限';
@@ -78,6 +79,7 @@ function setupList(ss) {
     sh.setConditionalFormatRules([rule]);
   }
   if (head[7] !== HEAD[7]) upgradeList(ss, sh);
+  if (head[8] !== HEAD[8]) addCheckColumn(sh);
   return sh;
 }
 
@@ -93,6 +95,21 @@ function upgradeList(ss, sh) {
   if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), HEAD.length).createFilter();
   const stats = ss.getSheetByName(STATS);
   if (stats) stats.getRange('F2').setFormula(classFormula());
+}
+
+// 補上「名冊比對」欄；篩選範圍跟著放寬到這一欄，原本的篩選條件保留
+function addCheckColumn(sh) {
+  sh.getRange(1, 9).setValue(HEAD[8]).setFontWeight('bold').setBackground('#f4e9d3')
+    .setNote('網站寫入時拿「全校名冊」比對：姓名差一個字、或班級選錯時自動更正，括號裡是學生原本填的；查無的請導師確認');
+  sh.setColumnWidth(9, 230);
+  const old = sh.getFilter();
+  const crits = [];
+  if (old) {
+    for (let c = 1; c <= 8; c++) crits.push(old.getColumnFilterCriteria(c));
+    old.remove();
+  }
+  const f = sh.getRange(1, 1, sh.getMaxRows(), HEAD.length).createFilter();
+  crits.forEach((c, i) => c && f.setColumnFilterCriteria(i + 1, c));
 }
 
 // 各班人次照排序碼排，一年一班、一年二班……依序往下
@@ -415,15 +432,17 @@ function doPost(e) {
   try {
     setup();
     const sh = SpreadsheetApp.getActive().getSheetByName(LIST);
+    // 先拿全校名冊更正打錯的字，名單和重複比對都用更正後的班級姓名；名冊內容不回傳給網站
+    const fix = matchRoster(cls, name, rosterMap());
     const last = sh.getLastRow();
     if (last > 1) {
       // 同一位孩子同一種證書只記一筆：電腦教室常換電腦、隔天重玩又領一次，回傳第一次的編號讓網站改用原本的日期
-      const same = sh.getRange(2, 2, last - 1, 4).getDisplayValues().find((r) => r[1] === TITLES[level] && r[2] === cls && r[3] === name);
+      const same = sh.getRange(2, 2, last - 1, 4).getDisplayValues().find((r) => r[1] === TITLES[level] && r[2] === fix.cls && r[3] === fix.name);
       if (same) return json({ ok: true, dup: true, code: same[0] });
     }
     const row = last + 1;
-    sh.getRange(row, 1, 1, 5).setValues([[new Date(), d.code, TITLES[level], cls, name]]);
-    sh.getRange(row, 8).setValue(clsKey(cls));
+    sh.getRange(row, 1, 1, 5).setValues([[new Date(), d.code, TITLES[level], fix.cls, fix.name]]);
+    sh.getRange(row, 8, 1, 2).setValues([[clsKey(fix.cls), fix.note]]);
     sh.getRange(row, 1).setNumberFormat(STAMP);
     sh.getRange(row, 6).insertCheckboxes();
     return json({ ok: true });
@@ -436,6 +455,7 @@ function doPost(e) {
 function onEdit(e) {
   const r = e.range;
   if (r.getSheet().getName() === BANK) { CacheService.getScriptCache().remove('bank'); return; }
+  if (r.getSheet().getName() === ROSTER) { CacheService.getScriptCache().remove('roster'); return; }
   if (r.getSheet().getName() !== LIST || r.getColumn() !== 6 || r.getRow() < 2 || r.getNumRows() > 1) return;
   const cell = r.getSheet().getRange(r.getRow(), 7);
   if (r.getValue() === true) cell.setValue(new Date()).setNumberFormat(STAMP);
@@ -459,6 +479,7 @@ function onOpen() {
     .addSeparator()
     .addItem('開啟分類名單', 'openView')
     .addItem('把重複的紀錄移到「重複紀錄」', 'moveDuplicates')
+    .addItem('拿全校名冊檢查全部姓名', 'checkAllNames')
     .addToUi();
 }
 
@@ -544,14 +565,21 @@ function archiveDuplicates() {
     if (last < 3) return 0;
     const values = sh.getRange(2, 1, last - 1, 7).getValues();
     const shown = sh.getRange(2, 1, last - 1, 7).getDisplayValues();
-    const first = {};
-    const moved = [];
+    // 每組留下一筆：有人已經打勾領獎就留那一筆，否則留最早的
+    const groups = {};
     shown.forEach((r, i) => {
-      const key = `${r[2]}|${r[3]}|${r[4]}`;
       if (!r[4]) return;
-      if (first[key]) moved.push({ row: i + 2, v: values[i], d: r, keep: first[key] });
-      else first[key] = r[1];
+      const k = `${r[2]}|${r[3]}|${r[4]}`;
+      (groups[k] = groups[k] || []).push(i);
     });
+    const moved = [];
+    Object.values(groups).forEach((g) => {
+      if (g.length < 2) return;
+      const done = g.find((i) => values[i][5] === true);
+      const keep = done === undefined ? g[0] : done;
+      g.forEach((i) => i !== keep && moved.push({ row: i + 2, v: values[i], d: shown[i], keep: shown[keep][1] }));
+    });
+    moved.sort((a, b) => a.row - b.row);
     if (!moved.length) return 0;
     let dup = ss.getSheetByName(DUP);
     if (!dup) {
@@ -584,4 +612,112 @@ function archiveDuplicates() {
 function moveDuplicates() {
   const n = archiveDuplicates();
   SpreadsheetApp.getActive().toast(n ? `移出 ${n} 筆重複紀錄，存在「${DUP}」分頁` : '名單裡沒有重複的紀錄', '小河馬名單', 6);
+}
+
+// ── 全校名冊比對 ──
+// 「全校名冊」分頁兩欄：班級（六年一班）、姓名。資料來自學務系統「學生資料概況」，只放班級和姓名，
+// 不放生日、身分證字號；分頁隱藏並鎖住，只有資訊組能改。名冊只存在學校帳號的試算表，不進 GitHub
+function rosterMap() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('roster');
+  if (hit) return JSON.parse(hit);
+  const sh = SpreadsheetApp.getActive().getSheetByName(ROSTER);
+  const map = {};
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 2).getDisplayValues().forEach(([c, n]) => {
+      const name = n.replace(/\s/g, '');
+      if (CLS.test(c) && name) (map[c] = map[c] || []).push(name);
+    });
+  }
+  try { cache.put('roster', JSON.stringify(map), 21600); } catch (err) { console.error(err); }
+  return map;
+}
+
+// 兩個名字只差一個字（打錯、少打或多打一個字）
+function oneOff(a, b) {
+  const x = [...a];
+  const y = [...b];
+  if (Math.abs(x.length - y.length) > 1 || Math.min(x.length, y.length) < 2) return false;
+  let i = 0;
+  while (i < x.length && i < y.length && x[i] === y[i]) i++;
+  let j = 0;
+  while (j < x.length - i && j < y.length - i && x[x.length - 1 - j] === y[y.length - 1 - j]) j++;
+  return Math.max(x.length, y.length) - i - j === 1;
+}
+
+// 回傳更正後的班級姓名與比對結果；只有「唯一一個」可能的對象才自動改，其餘標出來給導師確認
+function matchRoster(cls, name, map) {
+  const all = Object.keys(map);
+  if (!all.length) return { cls, name, note: '' };
+  if ((map[cls] || []).includes(name)) return { cls, name, note: '✔ 相符' };
+  const near = [...new Set((map[cls] || []).filter((n) => oneOff(name, n)))];
+  const elsewhere = all.filter((c) => map[c].includes(name));
+  // 同班有相近的名字、別班又有一模一樣的名字，猜不出是打錯字還是選錯班，交給導師
+  if (near.length + elsewhere.length > 1) return { cls, name, note: '⚠ 名冊有好幾個可能的對象，請導師確認' };
+  if (near.length === 1) return { cls, name: near[0], note: `已更正姓名（原填：${name}）` };
+  if (elsewhere.length === 1) return { cls: elsewhere[0], name, note: `已更正班級（原填：${cls}）` };
+  return { cls, name, note: '⚠ 名冊查無，請導師確認' };
+}
+
+// 換新名冊：rows 是 [班級, 姓名]，整張換掉
+function importRoster(rows) {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(ROSTER);
+  if (!sh) {
+    sh = ss.insertSheet(ROSTER);
+    const p = sh.protect().setDescription('全校名冊，只有資訊組能修改');
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+    sh.setTabColor(LIST_TAB);
+  }
+  sh.clear();
+  sh.getRange(1, 1, 1, 2).setValues([['班級', '姓名']]).setFontWeight('bold').setBackground('#f4e9d3');
+  sh.getRange('A1').setNote('拿來比對領取名單的全校名冊（只有班級、姓名）。換學期或有轉學生時整張換新；改動這張表後網站馬上改用新名冊');
+  sh.setFrozenRows(1);
+  sh.getRange('A:B').setNumberFormat('@');
+  if (rows.length) sh.getRange(2, 1, rows.length, 2).setValues(rows);
+  sh.hideSheet();
+  CacheService.getScriptCache().remove('roster');
+  return rows.length;
+}
+
+// 名單裡還沒比對過的列全部比對一次（已更正過的不再動），更正後變重複的再移到「重複紀錄」
+function reconcileList() {
+  const map = rosterMap();
+  if (!Object.keys(map).length) throw new Error('還沒有全校名冊');
+  const ss = SpreadsheetApp.getActive();
+  setup();
+  const out = { checked: 0, ok: 0, fixed: [], missing: [] };
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) throw new Error('名單正在寫入，請稍後再試');
+  try {
+    const sh = ss.getSheetByName(LIST);
+    const last = sh.getLastRow();
+    if (last < 2) return out;
+    const rows = sh.getRange(2, 4, last - 1, 6).getDisplayValues(); // D 班級 … I 名冊比對
+    const de = [];
+    const hi = [];
+    rows.forEach((r) => {
+      const [cls, name, , , key, note] = r;
+      if (!name || note.startsWith('已更正')) { de.push([cls, name]); hi.push([key, note]); return; }
+      const f = matchRoster(cls, name, map);
+      out.checked++;
+      if (f.note === '✔ 相符') out.ok++;
+      else if (f.note.startsWith('已更正')) out.fixed.push(`${cls} ${name} → ${f.cls} ${f.name}`);
+      else out.missing.push(`${cls} ${name}（${f.note}）`);
+      de.push([f.cls, f.name]);
+      hi.push([CLS.test(f.cls) ? clsKey(f.cls) : key, f.note]);
+    });
+    sh.getRange(2, 4, rows.length, 2).setValues(de);
+    sh.getRange(2, 8, rows.length, 2).setValues(hi);
+  } finally {
+    lock.releaseLock();
+  }
+  out.moved = archiveDuplicates();
+  return out;
+}
+
+function checkAllNames() {
+  const r = reconcileList();
+  SpreadsheetApp.getActive().toast(`檢查 ${r.checked} 筆：相符 ${r.ok}、自動更正 ${r.fixed.length}、名冊查無 ${r.missing.length}（請看「名冊比對」欄）；移出重複 ${r.moved} 筆`, '小河馬名單', 10);
 }
