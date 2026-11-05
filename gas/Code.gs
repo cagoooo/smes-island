@@ -7,6 +7,7 @@ const BANK = '題庫';
 const GUIDE = '出題說明';
 const OVERVIEW = '題庫總覽';
 const CHECK = '檢查';
+const DUP = '重複紀錄';
 const OK = '✔ 會出題';
 const HEAD = ['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '排序'];
 const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人', M: '尋河馬達人' };
@@ -457,6 +458,7 @@ function onOpen() {
     .addItem('依領取時間排序', 'sortByTime')
     .addSeparator()
     .addItem('開啟分類名單', 'openView')
+    .addItem('把重複的紀錄移到「重複紀錄」', 'moveDuplicates')
     .addToUi();
 }
 
@@ -528,4 +530,58 @@ function openView() {
   const ss = SpreadsheetApp.getActive();
   setup();
   ss.setActiveSheet(ss.getSheetByName(VIEW));
+}
+
+// 同一位孩子同一張證書記了兩次以上時，留下第一筆，其他移到「重複紀錄」分頁（不刪除），校長室打勾才不會看到兩行
+// 舊版（2026-11-04 中午以前）隔天重玩會再記一次；之後網站已改成只記一筆，這裡處理留下來的舊資料
+function archiveDuplicates() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) throw new Error('名單正在寫入，請稍後再試');
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const sh = ss.getSheetByName(LIST);
+    const last = sh.getLastRow();
+    if (last < 3) return 0;
+    const values = sh.getRange(2, 1, last - 1, 7).getValues();
+    const shown = sh.getRange(2, 1, last - 1, 7).getDisplayValues();
+    const first = {};
+    const moved = [];
+    shown.forEach((r, i) => {
+      const key = `${r[2]}|${r[3]}|${r[4]}`;
+      if (!r[4]) return;
+      if (first[key]) moved.push({ row: i + 2, v: values[i], d: r, keep: first[key] });
+      else first[key] = r[1];
+    });
+    if (!moved.length) return 0;
+    let dup = ss.getSheetByName(DUP);
+    if (!dup) {
+      dup = ss.insertSheet(DUP, 3);
+      dup.getRange(1, 1, 1, 9).setValues([['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '名單裡保留的證書編號', '移出時間']])
+        .setFontWeight('bold').setBackground('#f4e9d3');
+      dup.getRange('A1').setNote('同一位孩子同一張證書重複的紀錄，從「領取名單」移過來保存；發獎請看「領取名單」裡保留的那一筆');
+      dup.setFrozenRows(1);
+      dup.getRange('B:E').setNumberFormat('@');
+      dup.getRange('H:H').setNumberFormat('@');
+      [150, 170, 110, 90, 90, 70, 150, 190, 150].forEach((w, i) => dup.setColumnWidth(i + 1, w));
+      dup.setTabColor(LIST_TAB);
+      const p = dup.protect().setDescription('發獎資料，只有資訊組能修改');
+      p.removeEditors(p.getEditors());
+      if (p.canDomainEdit()) p.setDomainEdit(false);
+    }
+    const now = new Date();
+    const start = dup.getLastRow() + 1;
+    dup.getRange(start, 1, moved.length, 9).setValues(moved.map((m) => [m.v[0], m.d[1], m.d[2], m.d[3], m.d[4], m.v[5] === true ? '✔' : '', m.v[6] || '', m.keep, now]));
+    dup.getRange(start, 1, moved.length, 1).setNumberFormat(STAMP);
+    dup.getRange(start, 7, moved.length, 1).setNumberFormat(STAMP);
+    dup.getRange(start, 9, moved.length, 1).setNumberFormat(STAMP);
+    moved.slice().reverse().forEach((m) => sh.deleteRow(m.row));
+    return moved.length;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function moveDuplicates() {
+  const n = archiveDuplicates();
+  SpreadsheetApp.getActive().toast(n ? `移出 ${n} 筆重複紀錄，存在「${DUP}」分頁` : '名單裡沒有重複的紀錄', '小河馬名單', 6);
 }
