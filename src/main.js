@@ -657,7 +657,7 @@ function showTourStop() {
   tourTimer = 0;
   if (!d) {
     $('#tTitle').textContent = '小河馬尋寶任務';
-    $('#tText').textContent = '每座島都躲著一隻小河馬！找到 6 隻或 12 隻就能領證書，石門國小的同學帶著證書到校長室，就能領取獎勵。';
+    $('#tText').textContent = '每座島都躲著一隻小河馬！找到 6 隻、12 隻可以領紀念證書；再通過閱讀挑戰成為「尋河馬達人」，石門國小的同學就能到校長室兌換小客人招待券。';
     world.clearFocus();
     world.setView('home');
     syncView('home');
@@ -773,12 +773,12 @@ function showMission() {
     : passed() ? '你已經是尋河馬達人了！' : S.stamps.size < 12 ? `全部找到了！再集滿 ${12 - S.stamps.size} 枚章，就能挑戰尋河馬達人` : '全部找到了，快去挑戰尋河馬達人！';
   store.set('smes-mission-seen', true);
   openModal(`${dialogHead('小河馬尋寶任務')}<div class="dialog-body">
-    <p>12 座浮空島上，各躲著一隻小河馬。找到牠們，就能領證書，再到校長室領取獎勵！</p>
+    <p>12 座浮空島上，各躲著一隻小河馬。找到牠們領證書，一路闖到「尋河馬達人」，就能到校長室兌換小客人招待券！</p>
     <ol class="mission">
       <li><strong>逛島</strong><span>點一座島，或用「島嶼導覽」「跟著逛島」到處走走。</span></li>
       <li><strong>找小河馬</strong><span>放大畫面，找閃閃發光的地方，點一下小河馬就收集到了。</span></li>
-      <li><strong>領證書</strong><span>找到 6 隻領「尋寶探險家」，12 隻領「尋寶小達人」。到「閱讀護照」選班級、填姓名就能領。</span></li>
-      <li><strong>到校長室領獎勵</strong><span>把證書存起來或印出來，石門國小的同學帶到校長室就能領取獎勵。</span></li>
+      <li><strong>領紀念證書</strong><span>找到 6 隻領「尋寶探險家」，12 隻領「尋寶小達人」。到「閱讀護照」選班級、填姓名就能領，存起來留念。</span></li>
+      <li><strong>闖到尋河馬達人</strong><span>只有第三段「尋河馬達人」的證書可以到校長室兌換獎勵，石門國小的同學加油！</span></li>
     </ol>
     <div class="stage3"><div><strong>第三段・尋河馬達人</strong><span>找齊 12 隻、集滿 12 枚閱讀護照章，再通過十二座島的閱讀挑戰（12 題答對 ${PASS} 題），就能領紫色證書，${REDEEM}到校長室兌換<b>小客人招待券</b>！</span></div><button class="cta koi" data-act="challenge">看挑戰</button></div>
     <p class="stage4">第四段「AI科技島」即將登場：高年級專題發表，中低年級一起來觀賞</p>
@@ -792,7 +792,7 @@ function showPassport() {
     <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面找找看閃閃發光的地方。</p>
     <div class="stamps">${ISLANDS.map((d) => `<button class="stamp ${S.stamps.has(d.id) ? 'on' : ''}" style="--c:${d.color}" data-goto="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <h3 class="hippo-title">小河馬證書</h3>
-    <p>找到 6 隻、12 隻各可領一張證書；集滿 12 枚章再通過閱讀挑戰，還能領「尋河馬達人」，${REDEEM}到校長室兌換小客人招待券！</p>
+    <p>找到 6 隻、12 隻各可領一張紀念證書；集滿 12 枚章再通過閱讀挑戰，就能領「尋河馬達人」，${REDEEM}到校長室兌換小客人招待券！</p>
     ${certTiers(tierState())}
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <h3 class="hippo-title">小河馬圖鑑</h3>
@@ -844,7 +844,7 @@ async function showCert(level) {
   const moved = sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
-    <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : '把證書存起來或印出來，帶到校長室領取獎勵！'}手機也可以長按圖片儲存</p>
+    <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : '這是紀念證書，存起來或印出來留念；成為「尋河馬達人」就能到校長室兌換小客人招待券！'}手機也可以長按圖片儲存</p>
     <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button>
     <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' || (level === 12 && passed()) ? '關閉證書，繼續逛島' : level === 12 ? '前往第三段：尋河馬達人' : '關閉證書，繼續闖關'} ›</button></div>
     ${handover('平板要交給下一位同學時才按這裡，記得先把證書存好或印好。', true)}</div>`, true);
@@ -870,7 +870,7 @@ async function showCert(level) {
     $('#certSave').href = certUrl;
     $('#certSave').hidden = false;
   } catch { /* 留著剛才那張 */ }
-  $('.cert-tip').innerHTML = `你在 <b>${+m} 月 ${+d} 日</b>就領過這張證書了，證書改用第一次領取的日期和編號，帶哪一張到校長室都一樣哦！`;
+  $('.cert-tip').innerHTML = `你在 <b>${+m} 月 ${+d} 日</b>就領過這張證書了，證書改用第一次領取的日期和編號，${level === 'M' ? '帶哪一張到校長室都一樣哦！' : '存哪一張留念都一樣哦！'}`;
 }
 
 // ───────── 第三段：島嶼閱讀挑戰 ─────────

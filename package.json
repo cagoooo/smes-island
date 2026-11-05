@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.26.0",
-  "releaseNotes": "第三段作答時，作答框會發光，旁邊的泡泡指出題目在哪裡",
+  "version": "1.27.0",
+  "releaseNotes": "前兩段改為紀念證書，只有尋河馬達人可以到校長室兌換小客人招待券",
   "type": "module",
   "scripts": {
     "dev": "vite",
