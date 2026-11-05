@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.24.0",
-  "releaseNotes": "領完小達人證書會直接帶到第三段，還能一鍵帶你去還沒蓋章的島",
+  "version": "1.25.0",
+  "releaseNotes": "尋河馬達人過關派對：煙火、彩帶、全島機關一起轉，島上的人一起歡呼",
   "type": "module",
   "scripts": {
     "dev": "vite",

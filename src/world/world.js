@@ -389,6 +389,34 @@ export class World {
     }
   }
 
+  // 第三段過關的派對：十二座島的機關一起轉、燈塔亮、星星閃，天空輪流放煙火，島上的人一起揮手跳
+  party(sec = 9) {
+    this.partyUntil = (this.now || 0) + sec;
+    this.partyNext = this.now || 0;
+    for (const id in this.islands) this.islands[id].dyn.forEach((d) => d.quest?.('done'));
+    const cam = this.camera.position;
+    for (const p of this.people.list) if (p.vis > 0.5) { p.greet = 1.6; p.greetYaw = Math.atan2(cam.x - p.x, cam.z - p.z); }
+    this.hippoFx.celebrate();
+  }
+
+  partyTick(t) {
+    if (t >= this.partyUntil) {
+      this.partyUntil = 0;
+      for (const id in this.islands) this.islands[id].dyn.forEach((d) => d.quest?.(null));
+      return;
+    }
+    if (t < this.partyNext || this.hippoFx.calm) return;
+    this.partyNext = t + 0.26;
+    const ids = Object.keys(this.islands);
+    const p = this.islands[ids[Math.floor(Math.random() * ids.length)]].group.position;
+    this.hippoFx.burst({ x: p.x + (Math.random() - 0.5) * 9, y: p.y + 7 + Math.random() * 7, z: p.z + (Math.random() - 0.5) * 9 }, 34, 8.5, 0.36);
+    // 人物每隔一陣子再一起跳一次
+    if (Math.random() < 0.18) {
+      const cam = this.camera.position;
+      for (const q of this.people.list) if (q.vis > 0.5 && !(q.greet > 0)) { q.greet = 1.6; q.greetYaw = Math.atan2(cam.x - q.x, cam.z - q.z); }
+    }
+  }
+
   setPaused(v) { this.paused = v; }
 
   setTilt(v) { this.tilt = v; }
@@ -464,6 +492,7 @@ export class World {
     const gale = this.storm.level;
     this.renderer.toneMappingExposure = this.exposure * (1 - gale * 0.1) + this.storm.flash;
     this.now = t;
+    if (this.partyUntil) this.partyTick(t);
     for (const id in this.islands) {
       const is = this.islands[id];
       is.group.position.y = is.base + Math.sin(t * (0.42 + gale * 0.9) + is.phase) * (0.16 + gale * 0.5);
@@ -476,7 +505,7 @@ export class World {
       }
       // 每座島有自己的時鐘：閱讀挑戰卡關時停住（齒輪、衛星碟、風車不轉），答對後加速轉起來
       const q = this.quest?.id === id ? this.quest : null;
-      const rate = q?.mode === 'stuck' ? 0 : q?.mode === 'done' && t - q.at < 2.5 ? 3.2 : 1;
+      const rate = q?.mode === 'stuck' ? 0 : (q?.mode === 'done' && t - q.at < 2.5) || t < this.partyUntil ? 3.2 : 1;
       is.clock = (is.clock ?? t) + (this.paused ? 0 : dt) * rate;
       for (const d of is.dyn) d.update?.(is.clock, this.env);
     }

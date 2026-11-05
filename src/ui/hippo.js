@@ -84,14 +84,25 @@ export function showFinale(level = TOTAL, score = 0) {
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', m.title);
   const ring = Array.from({ length: n }, (_, i) => `<span style="--i:${i * TOTAL / n}">${ICON}</span>`).join('');
-  el.innerHTML = `<div class="finale-card card">
-    <div class="finale-rays"></div>
+  // 第三段的結算卡：滿天彩帶、星星，分數一題一題跳上去
+  const grand = level === 'M';
+  const colors = ['#e0452f', '#f5c542', '#2f8fb0', '#4f9a54', '#a46bc0', '#ef8fa3', '#e0812a'];
+  const confetti = grand ? `<div class="confetti" aria-hidden="true">${Array.from({ length: 70 }, (_, i) => `<i style="--x:${(i * 37) % 100}vw;--d:${((i * 0.13) % 2.6).toFixed(2)}s;--t:${(2.6 + (i % 7) * 0.35).toFixed(2)}s;--c:${colors[i % colors.length]};--r:${(i * 47) % 360}deg;--w:${6 + (i % 4) * 3}px"></i>`).join('')}</div>` : '';
+  if (grand) el.classList.add('grand');
+  el.innerHTML = `${confetti}<div class="finale-card card">
+    <div class="finale-rays"></div>${grand ? '<div class="finale-stars" aria-hidden="true">' + '<b>★</b>'.repeat(8) + '</div>' : ''}
     <div class="finale-ring">${ring}<div class="finale-badge${level === 'M' ? ' m' : ''}">${m.badge}</div></div>
     <h2>${m.title}</h2>
-    <p>${score ? `12 題答對 ${score} 題，` : ''}${m.text}</p>
+    <p>${score ? `12 題答對 <b class="finale-score" data-to="${score}">${grand ? 0 : score}</b> 題，` : ''}${m.text}</p>
     <div class="btn-row"><button class="cta koi" data-act="finaleCert" data-level="${level}">領取證書</button><button class="cta lake" data-act="${level === 6 ? 'finaleClose' : level === 12 ? 'challenge' : 'finalePassport'}">${m.later}</button></div>
   </div>`;
   document.body.append(el);
+  const num = el.querySelector('.finale-score');
+  if (grand && num) {
+    let k = 0;
+    const to = +num.dataset.to;
+    const tick = setInterval(() => { k += 1; num.textContent = k; num.classList.remove('bump'); void num.offsetWidth; num.classList.add('bump'); if (k >= to) clearInterval(tick); }, 110);
+  }
 }
 
 export const closeFinale = () => document.querySelector('#hippoFinale')?.remove();

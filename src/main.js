@@ -10,7 +10,7 @@ import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hi
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { challenge, loadBank, newRun, answer, levelHtml, rules } from './ui/challenge.js';
 import { BANDS, PASS, REDEEM, QUEST, bandOf } from './data/challenge.js';
-import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS } from './data/site.js';
+import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS, PEOPLE_LINES } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
 import { fetchWeather, fetchAlert, stormState, fetchAir, fetchReservoir, fetchNews, fmtDate } from './ui/live.js';
 
@@ -299,7 +299,7 @@ function showSay(p) {
 // ───────── 颱風天：跑進屋時自己喊出防颱提醒；進屋後門口出現對話泡泡，點開聽屋裡在聊什麼 ─────────
 const autoSays = [];
 const doorTags = new Map();
-let autoNext = 0, sayDoor = null;
+let autoNext = 0, sayDoor = null, cheerUntil = 0;
 
 function onScreen(p, camera) {
   world.people.headOf(p, v3);
@@ -317,23 +317,25 @@ function stormTalk(camera, W, H) {
   const now = performance.now();
   for (let i = autoSays.length - 1; i >= 0; i--) {
     const a = autoSays[i];
-    if (now > a.until || a.p.vis < 0.3 || !P.storm) { a.el.remove(); autoSays.splice(i, 1); continue; }
+    if (now > a.until || a.p.vis < 0.3 || (!P.storm && !a.cheer)) { a.el.remove(); autoSays.splice(i, 1); continue; }
     P.headOf(a.p, v3);
     place(a.el, camera, W, H);
   }
   // 一次最多三個人喊話，輪流換人，畫面才不會被泡泡塞滿
-  if (P.storm && now > autoNext && autoSays.length < 3) {
-    autoNext = now + 1600 + Math.random() * 1400;
+  // 過關歡呼時泡泡冒得快一點、多一點
+  const cheering = now < cheerUntil;
+  if ((P.storm || cheering) && now > autoNext && autoSays.length < (cheering ? 5 : 3)) {
+    autoNext = now + (cheering ? 500 + Math.random() * 500 : 1600 + Math.random() * 1400);
     const busy = new Set(autoSays.map((a) => a.p));
     if (sayWho) busy.add(sayWho);
-    const cand = P.list.filter((p) => p.crew.state === 'shelter' && p.crew.on && p.vis > 0.8 && !busy.has(p) && onScreen(p, camera));
+    const cand = P.list.filter((p) => (cheering || p.crew.state === 'shelter') && p.crew.on && p.vis > 0.8 && !busy.has(p) && onScreen(p, camera));
     if (cand.length) {
       const p = cand[Math.floor(Math.random() * cand.length)];
       const el = document.createElement('div');
-      el.className = 'say auto';
-      el.innerHTML = `<div class="say-box"><p>${esc(P.tipOf(p))}</p></div>`;
+      el.className = `say auto${cheering ? ' cheer' : ''}`;
+      el.innerHTML = `<div class="say-box"><p>${esc(cheering ? P.pick(PEOPLE_LINES.cheer) : P.tipOf(p))}</p></div>`;
       $('#labels').appendChild(el);
-      autoSays.push({ p, el, until: now + 3400 });
+      autoSays.push({ p, el, until: now + 3400, cheer: cheering });
     }
   }
   const seen = new Set();
@@ -1583,7 +1585,13 @@ function paintSfx(on) {
 }
 
 function celebrate(level = 12, score = 0) {
-  world.hippoFx.celebrate();
+  if (level === 'M') {
+    // 第三段是最後一關：整個群島一起開派對，歡呼與號角輪流響
+    world.party(9);
+    cheerUntil = performance.now() + 7000;
+    [0, 900, 1800].forEach((ms) => setTimeout(() => music.sfx(ms === 900 ? 'horn' : 'cheer'), ms));
+    setTimeout(() => music.sfx('found'), 1500);
+  } else world.hippoFx.celebrate();
   music.sfx('cheer');
   music.sfx('chime');
   if (!S.island) { world.setView('home'); syncView('home'); }
