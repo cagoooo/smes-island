@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.23.1",
-  "releaseNotes": "修正跟著逛島、島嶼導覽時按「瞭望台」沒有反應",
+  "version": "1.24.0",
+  "releaseNotes": "領完小達人證書會直接帶到第三段，還能一鍵帶你去還沒蓋章的島",
   "type": "module",
   "scripts": {
     "dev": "vite",

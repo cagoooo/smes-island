@@ -70,7 +70,7 @@ export function flyCount(from) {
 
 const MILESTONE = {
   6: { badge: '探險家', title: '找到 6 隻小河馬了！', text: '你是尋寶探險家，可以領證書囉！<br>再找 6 隻，還有金色證書等著你', later: '繼續找小河馬' },
-  12: { badge: '小達人', title: '十二隻全部找到了！', text: '你走遍每一座島，是尋寶小達人！<br>快來領金色證書，集滿 12 枚章還能挑戰尋河馬達人', later: '看閱讀護照' },
+  12: { badge: '小達人', title: '十二隻全部找到了！', text: '你走遍每一座島，是尋寶小達人！<br>快來領金色證書，下一步是第三段「尋河馬達人」', later: '看第三段挑戰' },
   M: { badge: '達人', title: '通過十二座島的閱讀挑戰！', text: `你是尋河馬達人！<br>領取證書，${REDEEM}到校長室兌換小客人招待券`, later: '看閱讀護照' },
 };
 
@@ -89,7 +89,7 @@ export function showFinale(level = TOTAL, score = 0) {
     <div class="finale-ring">${ring}<div class="finale-badge${level === 'M' ? ' m' : ''}">${m.badge}</div></div>
     <h2>${m.title}</h2>
     <p>${score ? `12 題答對 ${score} 題，` : ''}${m.text}</p>
-    <div class="btn-row"><button class="cta koi" data-act="finaleCert" data-level="${level}">領取證書</button><button class="cta lake" data-act="${level === 6 ? 'finaleClose' : 'finalePassport'}">${m.later}</button></div>
+    <div class="btn-row"><button class="cta koi" data-act="finaleCert" data-level="${level}">領取證書</button><button class="cta lake" data-act="${level === 6 ? 'finaleClose' : level === 12 ? 'challenge' : 'finalePassport'}">${m.later}</button></div>
   </div>`;
   document.body.append(el);
 }

@@ -88,8 +88,9 @@ $('#app').innerHTML = `
 </div>
 
 <button class="book-chip" id="bookChip" data-act="chBack" hidden></button>
+<button class="book-chip stamp-chip" id="stampChip" hidden></button>
 <button class="storm-chip" id="stormChip" data-act="storm" hidden><b id="stormTitle"></b><span>點我看防颱小叮嚀</span></button>
-<button class="hintcard card" id="hint" data-act="mission">
+<button class="hintcard card" id="hint" data-act="hint">
   <img src="./brand/fish-mascot.webp" alt="" width="44" height="44"><span><strong>點一座島，開始探索！</strong><span id="hintText"></span><span class="visit-line" id="visitLine" hidden>累計 <b id="visitTotal">0</b> 人次登島・今日 <b id="visitToday">0</b> 人</span></span>
 </button>
 <p class="credit">Made with <span class="site-credit__heart" aria-label="愛心">❤️</span> by <a class="site-credit__author" href="${SCHOOL.teacherUrl}" target="_blank" rel="noopener noreferrer">阿凱老師</a></p>
@@ -467,9 +468,11 @@ function openIsland(id, { tab = 0, fly = true, push = true, keepSheet = false } 
     S.stamps.add(id);
     store.set('smes-stamps', [...S.stamps]);
     setHint();
-    if (S.stamps.size === order.length) toast(S.hippos.size === 12 && !passed() ? '閱讀護照集滿了！到閱讀護照挑戰「尋河馬達人」吧' : '恭喜！閱讀護照十二枚印章全部集滿了');
+    if (S.stampRun && S.hippos.size === 12) S.justStamped = d.name; // 蓋章結果寫在上方按鈕，不另外跳提示蓋住它
+    else if (S.stamps.size === order.length) toast(S.hippos.size === 12 && !passed() ? '閱讀護照集滿了！到閱讀護照挑戰「尋河馬達人」吧' : '恭喜！閱讀護照十二枚印章全部集滿了');
     else toast(`閱讀護照蓋章：${d.name}（${S.stamps.size} / 12）`);
   }
+  paintStampChip();
   if (!whole) sheet.reset();
   syncView('');
   updateInset();
@@ -838,7 +841,7 @@ async function showCert(level) {
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
     <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : '把證書存起來或印出來，帶到校長室領取獎勵！'}手機也可以長按圖片儲存</p>
     <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button>
-    <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' ? '關閉證書，繼續逛島' : '關閉證書，繼續闖關'} ›</button></div>
+    <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' || (level === 12 && passed()) ? '關閉證書，繼續逛島' : level === 12 ? '前往第三段：尋河馬達人' : '關閉證書，繼續闖關'} ›</button></div>
     ${handover('平板要交給下一位同學時才按這裡，記得先把證書存好或印好。', true)}</div>`, true);
   try {
     const blob = await drawCert(level, fresh);
@@ -881,7 +884,24 @@ function chLocked() {
     <p>完成下面三件事，就能領「尋河馬達人」證書，${REDEEM}到校長室兌換小客人招待券！</p>
     <ol class="ch-need">${item(S.hippos.size === 12, '找齊 12 隻小河馬', `${S.hippos.size} / 12`)}${item(S.stamps.size === 12, '集滿 12 枚閱讀護照章', `${S.stamps.size} / 12`)}${item(false, '通過島嶼閱讀挑戰', `12 題答對 ${PASS} 題`)}</ol>
     <p class="note">點一座島、打開島嶼介紹，就會蓋一枚章；還沒蓋的島在「閱讀護照」裡看得到。</p>
-    <div class="btn-row"><button class="cta moss" data-act="passport">看閱讀護照</button><button class="cta koi" data-act="modalClose">繼續尋寶</button></div></div>`);
+    ${nextStamp() ? `<button class="cta koi go-stamp" data-act="goStamp">📍 帶我去還沒蓋章的島：${esc(byId[nextStamp()].name)} ›</button>` : ''}
+    <div class="btn-row"><button class="cta moss" data-act="passport">看閱讀護照</button><button class="cta lake" data-act="modalClose">繼續尋寶</button></div></div>`);
+}
+
+// 照島嶼順序找下一座還沒蓋章的島
+const nextStamp = () => order.find((id) => !S.stamps.has(id));
+
+// 從第三段被帶去蓋章時，畫面上方一路提示下一座島；集滿就直接回到第三段
+function paintStampChip() {
+  const chip = $('#stampChip');
+  const on = S.stampRun && S.hippos.size === 12 && !passed();
+  chip.hidden = !on;
+  if (!on) return;
+  const id = nextStamp();
+  chip.dataset.act = id ? 'goStamp' : 'stampDone';
+  const done = S.justStamped ? `✅ ${S.justStamped}蓋好章了！` : '';
+  S.justStamped = '';
+  chip.textContent = id ? `${done}📍 下一座：${byId[id].name}（還差 ${order.length - S.stamps.size} 枚）›` : `${done}🦛 12 枚章集滿了！開始第三段挑戰 ›`;
 }
 
 // 領過證書就照證書上的年級出題，沒領過才請孩子自己選年級
@@ -1224,6 +1244,21 @@ const actions = {
   quiz() { showQuiz(); },
   passport() { showPassport(); },
   mission() { showMission(); },
+  // 左下角提示卡：12 隻找齊了就直接進第三段，還沒找齊才看任務說明
+  hint() { if (S.hippos.size === 12 && !passed()) showChallenge(); else showMission(); },
+  goStamp() {
+    const id = nextStamp();
+    S.stampRun = true;
+    closeModal();
+    if (id) openIsland(id);
+    else paintStampChip();
+  },
+  stampDone() {
+    S.stampRun = false;
+    paintStampChip();
+    if (S.island) closeIsland();
+    showChallenge();
+  },
   qr() { showQr(); },
   qrBig() { $('#dialog').classList.toggle('qr-big'); },
   log() { showLog(); },
@@ -1309,6 +1344,8 @@ const actions = {
   certOpen(t) { showCert(lvl(t.dataset.level)); },
   challenge() { closeFinale(); showChallenge(); },
   async chStart(t) {
+    S.stampRun = false;
+    paintStampChip();
     const prev = challenge.get();
     t.disabled = true;
     t.textContent = '小河馬準備題目中…';
@@ -1354,6 +1391,8 @@ const actions = {
     const level = lvl(t.dataset.level);
     closeModal();
     setHint();
+    // 領完小達人證書，直接帶到第三段：章還沒集滿就看還差什麼，集滿了就能開始挑戰
+    if (level === 12 && !passed()) { showChallenge(); return; }
     toast(level === 6 ? '繼續找小河馬，找齊 12 隻還有金色證書！'
       : level === 'M' ? `${REDEEM}，記得帶證書到校長室兌換小客人招待券！`
         : S.stamps.size < 12 ? `再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`

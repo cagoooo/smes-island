@@ -694,6 +694,8 @@ body.listing .walkbar { display: none; }
 .ch-pips i.ok { background: var(--c); }
 .ch-pips i.no { background: repeating-linear-gradient(135deg, #b23a2a 0 3px, #f2cfc7 3px 6px); }
 .ch-rules { margin: 10px 0 0; padding-left: 1.3em; line-height: 1.7; }
+.book-chip.stamp-chip { width: max-content; max-width: calc(100vw - 24px); white-space: normal; text-align: center; line-height: 1.4; }
+.go-stamp { display: flex; width: 100%; justify-content: center; margin-top: 12px; white-space: normal; text-align: center; }
 .ch-state { margin: 8px 0 0; padding: 6px 12px; border-radius: 10px; font-size: var(--fs-sm); font-weight: 800; color: #fff; background: #6c6f7a; }
 .ch-state.done { background: linear-gradient(135deg, #3f9a54, #2f8fb0); animation: quest-pop .5s ease-out; }
 .ch-book { display: block; margin: 6px 0 10px; padding: 6px 12px; border-radius: 99px; font-size: var(--fs-sm); font-weight: 700; color: #6b3f86; background: #f3ebfa; border: 1.5px dashed #b48fd0; }
