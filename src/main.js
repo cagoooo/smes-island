@@ -88,6 +88,7 @@ $('#app').innerHTML = `
 </div>
 
 <button class="book-chip" id="bookChip" data-act="chBack" hidden></button>
+<p class="ch-tip" id="chTip" aria-hidden="true" hidden><b>📝 題目在這裡</b><span>讀完題目，點選答案</span></p>
 <button class="book-chip stamp-chip" id="stampChip" hidden></button>
 <button class="storm-chip" id="stormChip" data-act="storm" hidden><b id="stormTitle"></b><span>點我看防颱小叮嚀</span></button>
 <button class="hintcard card" id="hint" data-act="hint">
@@ -169,6 +170,7 @@ function toast(msg) {
 function openModal(html, wide = false, peek = false) {
   const d = $('#dialog');
   const was = $('#modal').classList.contains('peek');
+  $('#chTip').hidden = true;
   d.className = `dialog${wide ? ' wide' : ''}`;
   d.innerHTML = html;
   delete d.dataset.lock;
@@ -181,6 +183,7 @@ function openModal(html, wide = false, peek = false) {
 }
 function closeModal() {
   const was = $('#modal').classList.contains('peek');
+  $('#chTip').hidden = true;
   $('#modal').classList.remove('open', 'peek');
   if (!was) return;
   $('#watch').classList.toggle('away', !!S.island);
@@ -928,10 +931,30 @@ function chLevel(shown = false) {
   if (!shown) world?.focusIsland(st.levels[k].i, true);
   S.chShown = shown;
   if (!shown) setQuest(st.levels[k].i, 'stuck');
-  openModal(`${dialogHead('島嶼閱讀挑戰')}<div class="dialog-body ch">${levelHtml(st, k, shown)}</div>`, false, true);
+  openModal(`${dialogHead('📝 島嶼閱讀挑戰')}<div class="dialog-body ch">${levelHtml(st, k, shown)}</div>`, false, true);
+  spotQuiz(!shown);
   // 手機上對錯說明常在畫面外，答完自動捲到說明和「下一關」
   if (shown) $('.ch-fb')?.scrollIntoView({ block: 'nearest', behavior: calm ? 'auto' : 'smooth' });
 }
+
+// 第三段作答時，作答框發光，旁邊的泡泡指著它：鏡頭飛去島上時，孩子才知道題目在這裡
+function spotQuiz(fresh) {
+  const d = $('#dialog');
+  d.classList.add('ch-spot');
+  d.classList.toggle('ch-new', fresh);
+  $('#chTip').hidden = !fresh;
+  if (fresh) requestAnimationFrame(placeQuizTip);
+}
+function placeQuizTip() {
+  const tip = $('#chTip');
+  if (tip.hidden) return;
+  const r = $('#dialog').getBoundingClientRect();
+  const down = isMobile();
+  tip.classList.toggle('down', down);
+  tip.style.top = `${down ? r.top - 10 : r.top + 16}px`;
+  tip.style.right = down ? '' : `${window.innerWidth - r.left + 16}px`;
+}
+window.addEventListener('resize', placeQuizTip);
 
 // 島上的狀況跟著小河馬的話走：出題時卡住，答對才解開；挑戰結束就恢復原樣
 let questTimer = 0;
