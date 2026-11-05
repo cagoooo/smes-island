@@ -1,6 +1,11 @@
-// 小河馬證書領取名單：網站送來班級姓名，寫進這份試算表，校長室在「已領獎」打勾
+// 小河馬證書名單：網站送來班級姓名，寫進這份試算表；尋河馬達人進「發獎名單」，校長室在「已領獎」打勾
 // 「題庫」分頁是第三段島嶼閱讀挑戰的題目，老師直接在試算表新增、修改或停用，網站會自動讀取
-const LIST = '領取名單';
+// 2026-11-05 起只有尋河馬達人到校長室領獎：發獎名單只放尋河馬達人，前兩段的紀念證書另外收在「前兩段紀錄」
+const LIST = '發獎名單';
+const OLD_LIST = '領取名單';
+const TRAIL = '前兩段紀錄';
+const LISTS = [LIST, TRAIL];
+const listOf = (level) => (level === 'M' ? LIST : TRAIL);
 const STATS = '統計';
 const VIEW = '分類名單';
 const BANK = '題庫';
@@ -62,8 +67,8 @@ function validDate(s) {
   return t > 0 && t < Date.now() + 864e5;
 }
 
-function setupList(ss) {
-  const sh = ss.getSheetByName(LIST) || ss.getSheets()[0].setName(LIST);
+function setupList(ss, name) {
+  const sh = ss.getSheetByName(name) || (name === LIST ? ss.getSheets()[0].setName(LIST) : ss.insertSheet(name));
   const head = sh.getRange(1, 1, 1, HEAD.length).getValues()[0];
   if (head[0] !== HEAD[0]) {
     sh.getRange(1, 1, 1, 7).setValues([HEAD.slice(0, 7)]).setFontWeight('bold').setBackground('#f4e9d3');
@@ -77,6 +82,10 @@ function setupList(ss) {
       .whenFormulaSatisfied('=AND($E2<>"",COUNTIFS($C:$C,$C2,$D:$D,$D2,$E:$E,$E2)>1)')
       .setBackground('#f8d7d0').setRanges([sh.getRange('A2:G')]).build();
     sh.setConditionalFormatRules([rule]);
+    if (name === TRAIL) {
+      sh.hideColumns(6, 2);
+      sh.getRange('A1').setNote('第一、二段（尋寶探險家、尋寶小達人）的紀念證書，不發獎；校長室發獎請看「發獎名單」');
+    }
   }
   if (head[7] !== HEAD[7]) upgradeList(ss, sh);
   if (head[8] !== HEAD[8]) addCheckColumn(sh);
@@ -93,8 +102,49 @@ function upgradeList(ss, sh) {
   }
   sh.hideColumns(8);
   if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), HEAD.length).createFilter();
-  const stats = ss.getSheetByName(STATS);
-  if (stats) stats.getRange('F2').setFormula(classFormula());
+}
+
+// 舊的「領取名單」改名「發獎名單」，只留尋河馬達人並照班級姓名排好；前兩段的紀錄搬到「前兩段紀錄」（不刪除）
+function migrateList(ss) {
+  const old = ss.getSheetByName(OLD_LIST);
+  if (!old || ss.getSheetByName(LIST)) return false;
+  // 搬之前整張複製一份收起來，萬一搬錯還找得回原樣
+  const bak = old.copyTo(ss).setName('舊領取名單備份');
+  bak.hideSheet();
+  const bp = bak.protect().setDescription('2026-11-05 改版前的領取名單備份');
+  bp.removeEditors(bp.getEditors());
+  if (bp.canDomainEdit()) bp.setDomainEdit(false);
+  old.setName(LIST);
+  const trail = setupList(ss, TRAIL);
+  const last = old.getLastRow();
+  const f = old.getFilter();
+  if (f) f.remove();
+  if (last > 1) {
+    const rows = old.getRange(2, 1, last - 1, HEAD.length).getValues();
+    const keep = rows.filter((r) => r[2] === TITLES.M)
+      .sort((a, b) => (Number(a[7]) || 999) - (Number(b[7]) || 999) || String(a[4]).localeCompare(String(b[4]), 'zh-Hant') || a[0] - b[0]);
+    const move = rows.filter((r) => r[2] !== TITLES.M);
+    if (move.length) {
+      trail.getRange(2, 1, move.length, HEAD.length).setValues(move);
+      trail.getRange(2, 1, move.length, 1).setNumberFormat(STAMP);
+      trail.getRange(2, 6, move.length, 1).insertCheckboxes();
+    }
+    if (keep.length) {
+      old.getRange(2, 1, keep.length, HEAD.length).setValues(keep);
+      old.getRange(2, 1, keep.length, 1).setNumberFormat(STAMP);
+      old.getRange(2, 7, keep.length, 1).setNumberFormat(STAMP);
+    }
+    if (last - 1 > keep.length) old.deleteRows(keep.length + 2, last - 1 - keep.length);
+  }
+  old.getRange(1, 1, old.getMaxRows(), HEAD.length).createFilter();
+  old.hideColumns(3);
+  const view = ss.getSheetByName(VIEW);
+  if (view) view.getRange('A1').setValue('在黃色格子選條件，名單會自動更新；要勾「已領獎」請回「發獎名單」分頁');
+  if (ss.getSheetByName(GUIDE)) setupGuide(ss);
+  const dup = ss.getSheetByName(DUP);
+  if (dup) dup.getRange('A1').setNote('同一位孩子同一張證書重複的紀錄，從「發獎名單」或「前兩段紀錄」移過來保存；發獎請看「發獎名單」裡保留的那一筆');
+  old.getRange('A1').setNote('只放尋河馬達人（第三段）的證書，校長室在「已領獎」打勾；第一、二段的紀念證書收在「前兩段紀錄」');
+  return true;
 }
 
 // 補上「名冊比對」欄；篩選範圍跟著放寬到這一欄，原本的篩選條件保留
@@ -112,12 +162,6 @@ function addCheckColumn(sh) {
   crits.forEach((c, i) => c && f.setColumnFilterCriteria(i + 1, c));
 }
 
-// 各班人次照排序碼排，一年一班、一年二班……依序往下
-function classFormula() {
-  const q = `'${LIST}'`;
-  return `=IFERROR(LET(t,QUERY(${q}!A2:H,"select H, D, count(E) where E is not null group by H, D pivot C order by H label H '', D '班級'",0),CHOOSECOLS(t,SEQUENCE(1,COLUMNS(t)-1,2))),"尚無資料")`;
-}
-
 // 分類名單：選年級、班級、證書、領獎狀態，名單照班級姓名排好，可直接列印
 function certPick(sh) {
   sh.getRange('F2').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([ALL, ...Object.values(TITLES)], true).setAllowInvalid(false).build());
@@ -133,7 +177,7 @@ function setupView(ss) {
   const sh = ss.insertSheet(VIEW, 1);
   const q = `'${LIST}'`;
   const pick = (a1, rule) => sh.getRange(a1).setDataValidation(rule.setAllowInvalid(false).build());
-  sh.getRange('A1').setValue('在黃色格子選條件，名單會自動更新；要勾「已領獎」請回「領取名單」分頁').setFontWeight('bold');
+  sh.getRange('A1').setValue('在黃色格子選條件，名單會自動更新；要勾「已領獎」請回「發獎名單」分頁').setFontWeight('bold');
   sh.getRange('A2:H2').setValues([['年級', ALL, '班級', ALL, '證書', ALL, '領獎', ALL]]);
   pick('B2', SpreadsheetApp.newDataValidation().requireValueInList([ALL, ...'一二三四五六'.split('').map((g) => `${g}年級`)], true));
   pick('D2', SpreadsheetApp.newDataValidation().requireValueInRange(sh.getRange('Z1:Z'), true));
@@ -159,49 +203,44 @@ function setupView(ss) {
   [90, 90, 110, 70, 140, 140, 170].forEach((w, i) => sh.setColumnWidth(i + 1, w));
 }
 
-// 三種證書各一欄（B～D），E 欄合計；舊版只有兩種證書，第一次執行時整塊重寫
-function statsTable(sh) {
+// 各班一列照排序碼排；每一欄都用 MAP＋COUNTIF 對名單欄位算（陣列直接比對或相減會只取同一列，算錯）
+function classFormula() {
   const q = `'${LIST}'`;
-  const cols = ['B', 'C', 'D'];
-  const sum = (r) => `=${cols.map((c) => `${c}${r}`).join('+')}`;
-  const rows = [['全校人次', ...cols.map((c) => `=COUNTIF(${q}!C:C,${c}1)`), sum(2)],
-    ['已領獎', ...cols.map((c) => `=COUNTIFS(${q}!C:C,${c}1,${q}!F:F,TRUE)`), sum(3)],
-    ['尚未領獎', ...cols.map((c) => `=${c}2-${c}3`), sum(4)]];
-  '一二三四五六'.split('').forEach((g, i) => {
-    rows.push([`${g}年級`, ...cols.map((c) => `=COUNTIFS(${q}!D:D,"${g}年*",${q}!C:C,${c}1)`), sum(i + 5)]);
-  });
-  sh.getRange('A1:E10').clearContent();
-  sh.getRange('A1:E1').setValues([['項目', TITLES[6], TITLES[12], TITLES.M, '合計']]).setFontWeight('bold').setBackground('#f4e9d3');
-  sh.getRange(2, 1, rows.length, 5).setFormulas(rows.map((r) => r.map((c) => (String(c).startsWith('=') ? c : `="${c}"`))));
+  return `=IFERROR(LET(c,CHOOSECOLS(SORT(UNIQUE(FILTER(HSTACK(${q}!H2:H,${q}!D2:D),${q}!E2:E<>"")),1,TRUE),2),`
+    + `n,MAP(c,LAMBDA(x,COUNTIF(${q}!D2:D,x))),y,MAP(c,LAMBDA(x,COUNTIFS(${q}!D2:D,x,${q}!F2:F,TRUE))),w,MAP(c,LAMBDA(x,COUNTIFS(${q}!D2:D,x,${q}!F2:F,FALSE))),HSTACK(c,n,y,w)),"尚無資料")`;
 }
 
-// 名單裡同一位孩子可能有好幾筆（舊版隔天重玩會再記一次），另外算不重複的人數給校長室備獎
-const PEOPLE = '領證人數（不重複）';
-function peopleRows(sh) {
-  const q = `'${LIST}'`;
-  const uniq = (c) => `=IFERROR(COUNTUNIQUE(FILTER(${q}!D2:D&"|"&${q}!E2:E,${q}!C2:C=${c}1,${q}!E2:E<>"")),0)`;
-  sh.getRange('A12:E13').setFormulas([
-    [`="${PEOPLE}"`, ...['B', 'C', 'D'].map(uniq), '=B12+C12+D12'],
-    ['="重複的筆數"', '=B2-B12', '=C2-C12', '=D2-D12', '=B13+C13+D13'],
-  ]);
-  sh.getRange('A12:E12').setFontWeight('bold').setBackground('#e7f1e1');
-  sh.getRange('A13').setNote('同一位孩子同一種證書出現兩次以上的筆數；領取名單裡會標成紅色');
-}
-
+// 統計：校長室備獎用，只算尋河馬達人；各班一列照排序碼排。前兩段只列人次參考
+const STATS_TITLE = '尋河馬達人發獎統計';
+const STATS_REV = 3; // 改了統計版面就加 1，下次開啟會整頁重建
 function setupStats(ss) {
-  const old = ss.getSheetByName(STATS);
-  if (old) {
-    if (old.getRange('D1').getValue() !== TITLES.M) statsTable(old);
-    if (old.getRange('A12').getValue() !== PEOPLE) peopleRows(old);
-    return;
-  }
-  const sh = ss.insertSheet(STATS);
-  statsTable(sh);
-  peopleRows(sh);
-  sh.getRange('F1').setValue('各班人次');
-  sh.getRange('F2').setFormula(classFormula());
-  sh.getRange('F1').setFontWeight('bold');
-  sh.setFrozenRows(1);
+  const sh = ss.getSheetByName(STATS) || ss.insertSheet(STATS);
+  if (sh.getRange('A1').getValue() === STATS_TITLE && sh.getRange('A1').getNote() === `rev${STATS_REV}`) return;
+  sh.clear();
+  const q = `'${LIST}'`;
+  const t = `'${TRAIL}'`;
+  sh.getRange('A1').setValue(STATS_TITLE).setFontWeight('bold').setFontSize(13).setNote(`rev${STATS_REV}`);
+  sh.getRange('A3:D3').setValues([['項目', '尋河馬達人', '已領獎', '尚未領獎']]);
+  const rows = [['全校', `=COUNTIF(${q}!C:C,"${TITLES.M}")`, `=COUNTIF(${q}!F:F,TRUE)`, '=B4-C4']];
+  '一二三四五六'.split('').forEach((g, i) => {
+    const r = i + 5;
+    rows.push([`${g}年級`, `=COUNTIF(${q}!D:D,"${g}年*")`, `=COUNTIFS(${q}!D:D,"${g}年*",${q}!F:F,TRUE)`, `=B${r}-C${r}`]);
+  });
+  sh.getRange(4, 1, rows.length, 4).setValues(rows);
+  sh.getRange('A12:B14').setValues([
+    ['前兩段（紀念證書，不發獎）', '人次'],
+    [TITLES[6], `=COUNTIF(${t}!C:C,"${TITLES[6]}")`],
+    [TITLES[12], `=COUNTIF(${t}!C:C,"${TITLES[12]}")`],
+  ]);
+  sh.getRange('F3:I3').setValues([['班級', '尋河馬達人', '已領獎', '尚未領獎']]);
+  sh.getRange('F4').setFormula(classFormula());
+  sh.getRangeList(['A3:D3', 'F3:I3', 'A12:B12']).setFontWeight('bold').setBackground('#f4e9d3');
+  sh.getRange('A4:D4').setFontWeight('bold').setBackground('#e7f1e1');
+  sh.getRange('B3:D10').setHorizontalAlignment('center');
+  sh.getRange('B13:B14').setHorizontalAlignment('center');
+  sh.getRange('G3:I').setHorizontalAlignment('center');
+  [110, 90, 80, 80, 30, 100, 90, 80, 80].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setFrozenRows(3);
 }
 
 // 題庫第一次建立時放入網站內建的題目（gas/Seed.gs），之後都以試算表為準
@@ -284,7 +323,7 @@ function setupGuide(ss) {
     ['③ 寫完看最右邊的「檢查」欄：出現「✔ 會出題」就完成了；「⚠」開頭的代表網站會略過這題，照提示補好就好。'],
     ['找題目：題庫第一列有篩選鈕，可以只看某座島、某個年段，或在「檢查」欄只看有「⚠」的題目。'],
     ['不想用的題目，在「停用」欄打勾就好，不要刪掉整列，之後取消勾選還能再用。'],
-    ['「領取名單」「分類名單」「統計」三個分頁是校長室發獎用的，只有資訊組能修改。'],
+    ['「發獎名單」「統計」兩個分頁是校長室發獎用的，只有資訊組能修改。'],
   ];
   sh.clear();
   sh.getRange(1, 1, lines.length, 1).setValues(lines).setWrap(true).setVerticalAlignment('middle');
@@ -335,8 +374,10 @@ function setupOverview(ss) {
 }
 
 // 分頁照用途排好、上色：前三個是校長室發獎用，後三個是出題用
+// 平常只露出發獎名單、統計和出題三頁；其他分頁收起來（隱藏，不刪除），選單「收起來的分頁」打得開
+const TUCKED = [VIEW, TRAIL, DUP, ROSTER];
 function arrangeTabs(ss) {
-  [[LIST, LIST_TAB], [VIEW, LIST_TAB], [STATS, LIST_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB]].forEach(([name, color], i) => {
+  [[LIST, LIST_TAB], [STATS, LIST_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB]].forEach(([name, color], i) => {
     const sh = ss.getSheetByName(name);
     if (!sh) return;
     sh.setTabColor(color);
@@ -344,12 +385,19 @@ function arrangeTabs(ss) {
     ss.moveActiveSheet(i + 1);
   });
   ss.setActiveSheet(ss.getSheetByName(LIST));
+  tuck(ss);
+}
+function tuck(ss) {
+  TUCKED.forEach((name) => {
+    const sh = ss.getSheetByName(name);
+    if (sh && !sh.isSheetHidden()) sh.hideSheet();
+  });
 }
 
 // 名單和統計是發獎資料，只有試算表擁有者（資訊組）能改；已領獎、領獎時間兩欄留著，之後校長室加入編輯也能打勾
 // 題庫標題列改到時跳出提醒，避免欄位被打亂
 function guard(ss) {
-  [[LIST, ['F2:G']], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []]].forEach(([name, open]) => {
+  [[LIST, ['F2:G']], [TRAIL, []], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []]].forEach(([name, open]) => {
     const sh = ss.getSheetByName(name);
     if (!sh || sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) return;
     const p = sh.protect().setDescription('發獎資料，只有資訊組能修改');
@@ -389,13 +437,14 @@ function bankItems() {
 function setup() {
   const ss = SpreadsheetApp.getActive();
   if (ss.getSpreadsheetTimeZone() !== 'Asia/Taipei') ss.setSpreadsheetTimeZone('Asia/Taipei'); // 新試算表預設美國時區，領取時間會差十幾小時
-  setupList(ss);
+  const moved = migrateList(ss);
+  LISTS.forEach((name) => setupList(ss, name));
   setupStats(ss);
   setupView(ss);
   setupBank(ss);
   // 總覽、分頁排序與保護只是方便使用，出錯也不能擋住網站寫入名單
   try {
-    if (setupOverview(ss) || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
+    if (setupOverview(ss) || moved || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
     guard(ss);
   } catch (err) {
     console.error(err);
@@ -404,7 +453,13 @@ function setup() {
 
 function doGet(e) {
   if (e && e.parameter && e.parameter.bank) return json({ ok: true, items: bankItems() });
-  setup();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return json({ ok: false, error: 'busy' });
+  try {
+    setup();
+  } finally {
+    lock.releaseLock();
+  }
   return json({ ok: true });
 }
 
@@ -431,11 +486,11 @@ function doPost(e) {
   if (!lock.tryLock(8000)) return json({ ok: false, error: 'busy' });
   try {
     setup();
-    const sh = SpreadsheetApp.getActive().getSheetByName(LIST);
+    const ss = SpreadsheetApp.getActive();
+    const sh = ss.getSheetByName(listOf(level));
     // 先拿全校名冊更正打錯的字，名單和重複比對都用更正後的班級姓名；名冊內容不回傳給網站
     const last = sh.getLastRow();
-    const recent = last > 1 ? sh.getRange(2, 1, last - 1, 4).getValues().map((r) => [r[0], r[3]]) : [];
-    const fix = matchRoster(cls, name, rosterMap(), busyClasses(recent, new Date()));
+    const fix = matchRoster(cls, name, rosterMap(), busyClasses(stampRows(ss), new Date()));
     if (last > 1) {
       // 同一位孩子同一種證書只記一筆：電腦教室常換電腦、隔天重玩又領一次，回傳第一次的編號讓網站改用原本的日期
       const same = sh.getRange(2, 2, last - 1, 4).getDisplayValues().find((r) => r[1] === TITLES[level] && r[2] === fix.cls && r[3] === fix.name);
@@ -472,13 +527,17 @@ function onOpen() {
     .addItem('只看尚未領獎', 'showPending')
     .addItem('只看已領獎', 'showDone')
     .addSubMenu(grade)
-    .addSubMenu(ui.createMenu('依證書').addItem(TITLES[6], 'cert6').addItem(TITLES[12], 'cert12').addItem(TITLES.M, 'certM'))
     .addItem('顯示全部（清除篩選）', 'showAll')
     .addSeparator()
     .addItem('依班級排序', 'sortByClass')
     .addItem('依領取時間排序', 'sortByTime')
     .addSeparator()
-    .addItem('開啟分類名單', 'openView')
+    .addSubMenu(ui.createMenu('收起來的分頁')
+      .addItem('分類名單（可列印）', 'openView')
+      .addItem('前兩段紀錄', 'openTrail')
+      .addItem('重複紀錄', 'openDup')
+      .addSeparator()
+      .addItem('再收起來', 'tuckAll'))
     .addItem('把重複的紀錄移到「重複紀錄」', 'moveDuplicates')
     .addItem('拿全校名冊檢查全部姓名', 'checkAllNames')
     .addToUi();
@@ -500,16 +559,12 @@ function setCrit(col, crit, msg) {
   SpreadsheetApp.getActive().toast(`${msg}，要看全部請選「顯示全部」`, '小河馬名單');
 }
 
-const textIs = (t) => SpreadsheetApp.newFilterCriteria().whenTextEqualTo(t).build();
 const checked = (f) => SpreadsheetApp.newFilterCriteria().whenFormulaSatisfied(f).build();
 function byGrade(i) {
   setCrit(4, SpreadsheetApp.newFilterCriteria().whenTextStartsWith(`${NUM[i - 1]}年`).build(), `只顯示${NUM[i - 1]}年級`);
 }
 function showPending() { setCrit(6, checked('=$F2<>TRUE'), '只顯示尚未領獎'); }
 function showDone() { setCrit(6, checked('=$F2=TRUE'), '只顯示已領獎'); }
-function cert6() { setCrit(3, textIs(TITLES[6]), `只顯示${TITLES[6]}`); }
-function cert12() { setCrit(3, textIs(TITLES[12]), `只顯示${TITLES[12]}`); }
-function certM() { setCrit(3, textIs(TITLES.M), `只顯示${TITLES.M}`); }
 function grade1() { byGrade(1); }
 function grade2() { byGrade(2); }
 function grade3() { byGrade(3); }
@@ -548,10 +603,21 @@ function sortList(spec, msg) {
 function sortByClass() { sortList([{ column: 8, ascending: true }, { column: 5, ascending: true }, { column: 1, ascending: true }], '已依班級、姓名排好'); }
 function sortByTime() { sortList([{ column: 1, ascending: true }], '已依領取時間排好'); }
 
-function openView() {
+function openTab(name) {
   const ss = SpreadsheetApp.getActive();
   setup();
-  ss.setActiveSheet(ss.getSheetByName(VIEW));
+  const sh = ss.getSheetByName(name);
+  if (!sh) return ss.toast('這個分頁還沒有資料', '小河馬名單');
+  sh.showSheet();
+  ss.setActiveSheet(sh);
+}
+function openView() { openTab(VIEW); }
+function openTrail() { openTab(TRAIL); }
+function openDup() { openTab(DUP); }
+function tuckAll() {
+  const ss = SpreadsheetApp.getActive();
+  ss.setActiveSheet(ss.getSheetByName(LIST));
+  tuck(ss);
 }
 
 // 同一位孩子同一張證書記了兩次以上時，留下第一筆，其他移到「重複紀錄」分頁（不刪除），校長室打勾才不會看到兩行
@@ -561,58 +627,63 @@ function archiveDuplicates() {
   if (!lock.tryLock(20000)) throw new Error('名單正在寫入，請稍後再試');
   try {
     const ss = SpreadsheetApp.getActive();
-    const sh = ss.getSheetByName(LIST);
-    const last = sh.getLastRow();
-    if (last < 3) return 0;
-    const values = sh.getRange(2, 1, last - 1, 7).getValues();
-    const shown = sh.getRange(2, 1, last - 1, 7).getDisplayValues();
-    // 每組留下一筆：有人已經打勾領獎就留那一筆，否則留最早的
-    const groups = {};
-    shown.forEach((r, i) => {
-      if (!r[4]) return;
-      const k = `${r[2]}|${r[3]}|${r[4]}`;
-      (groups[k] = groups[k] || []).push(i);
-    });
-    const moved = [];
-    Object.values(groups).forEach((g) => {
-      if (g.length < 2) return;
-      const done = g.find((i) => values[i][5] === true);
-      const keep = done === undefined ? g[0] : done;
-      g.forEach((i) => i !== keep && moved.push({ row: i + 2, v: values[i], d: shown[i], keep: shown[keep][1] }));
-    });
-    moved.sort((a, b) => a.row - b.row);
-    if (!moved.length) return 0;
-    let dup = ss.getSheetByName(DUP);
-    if (!dup) {
-      dup = ss.insertSheet(DUP, 3);
-      dup.getRange(1, 1, 1, 9).setValues([['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '名單裡保留的證書編號', '移出時間']])
-        .setFontWeight('bold').setBackground('#f4e9d3');
-      dup.getRange('A1').setNote('同一位孩子同一張證書重複的紀錄，從「領取名單」移過來保存；發獎請看「領取名單」裡保留的那一筆');
-      dup.setFrozenRows(1);
-      dup.getRange('B:E').setNumberFormat('@');
-      dup.getRange('H:H').setNumberFormat('@');
-      [150, 170, 110, 90, 90, 70, 150, 190, 150].forEach((w, i) => dup.setColumnWidth(i + 1, w));
-      dup.setTabColor(LIST_TAB);
-      const p = dup.protect().setDescription('發獎資料，只有資訊組能修改');
-      p.removeEditors(p.getEditors());
-      if (p.canDomainEdit()) p.setDomainEdit(false);
-    }
-    const now = new Date();
-    const start = dup.getLastRow() + 1;
-    dup.getRange(start, 1, moved.length, 9).setValues(moved.map((m) => [m.v[0], m.d[1], m.d[2], m.d[3], m.d[4], m.v[5] === true ? '✔' : '', m.v[6] || '', m.keep, now]));
-    dup.getRange(start, 1, moved.length, 1).setNumberFormat(STAMP);
-    dup.getRange(start, 7, moved.length, 1).setNumberFormat(STAMP);
-    dup.getRange(start, 9, moved.length, 1).setNumberFormat(STAMP);
-    moved.slice().reverse().forEach((m) => sh.deleteRow(m.row));
-    return moved.length;
+    return LISTS.reduce((n, name) => n + archiveIn(ss, ss.getSheetByName(name)), 0);
   } finally {
     lock.releaseLock();
   }
 }
 
+function archiveIn(ss, sh) {
+  if (!sh) return 0;
+  const last = sh.getLastRow();
+  if (last < 3) return 0;
+  const values = sh.getRange(2, 1, last - 1, 7).getValues();
+  const shown = sh.getRange(2, 1, last - 1, 7).getDisplayValues();
+  // 每組留下一筆：有人已經打勾領獎就留那一筆，否則留最早的
+  const groups = {};
+  shown.forEach((r, i) => {
+    if (!r[4]) return;
+    const k = `${r[2]}|${r[3]}|${r[4]}`;
+    (groups[k] = groups[k] || []).push(i);
+  });
+  const moved = [];
+  Object.values(groups).forEach((g) => {
+    if (g.length < 2) return;
+    const done = g.find((i) => values[i][5] === true);
+    const keep = done === undefined ? g[0] : done;
+    g.forEach((i) => i !== keep && moved.push({ row: i + 2, v: values[i], d: shown[i], keep: shown[keep][1] }));
+  });
+  moved.sort((a, b) => a.row - b.row);
+  if (!moved.length) return 0;
+  let dup = ss.getSheetByName(DUP);
+  if (!dup) {
+    dup = ss.insertSheet(DUP, 3);
+    dup.getRange(1, 1, 1, 9).setValues([['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '名單裡保留的證書編號', '移出時間']])
+      .setFontWeight('bold').setBackground('#f4e9d3');
+    dup.getRange('A1').setNote('同一位孩子同一張證書重複的紀錄，從「發獎名單」或「前兩段紀錄」移過來保存；發獎請看「發獎名單」裡保留的那一筆');
+    dup.setFrozenRows(1);
+    dup.getRange('B:E').setNumberFormat('@');
+    dup.getRange('H:H').setNumberFormat('@');
+    [150, 170, 110, 90, 90, 70, 150, 190, 150].forEach((w, i) => dup.setColumnWidth(i + 1, w));
+    dup.setTabColor(LIST_TAB);
+    const p = dup.protect().setDescription('發獎資料，只有資訊組能修改');
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+    dup.hideSheet();
+  }
+  const now = new Date();
+  const start = dup.getLastRow() + 1;
+  dup.getRange(start, 1, moved.length, 9).setValues(moved.map((m) => [m.v[0], m.d[1], m.d[2], m.d[3], m.d[4], m.v[5] === true ? '✔' : '', m.v[6] || '', m.keep, now]));
+  dup.getRange(start, 1, moved.length, 1).setNumberFormat(STAMP);
+  dup.getRange(start, 7, moved.length, 1).setNumberFormat(STAMP);
+  dup.getRange(start, 9, moved.length, 1).setNumberFormat(STAMP);
+  moved.slice().reverse().forEach((m) => sh.deleteRow(m.row));
+  return moved.length;
+}
+
 function moveDuplicates() {
   const n = archiveDuplicates();
-  SpreadsheetApp.getActive().toast(n ? `移出 ${n} 筆重複紀錄，存在「${DUP}」分頁` : '名單裡沒有重複的紀錄', '小河馬名單', 6);
+  SpreadsheetApp.getActive().toast(n ? `移出 ${n} 筆重複紀錄，存在「${DUP}」分頁（選單「收起來的分頁」打得開）` : '名單裡沒有重複的紀錄', '小河馬名單', 6);
 }
 
 // ── 全校名冊比對 ──
@@ -654,6 +725,16 @@ const VARIANT = {
 };
 function norm(s) {
   return [...s].map((c) => VARIANT[c] || c).join('');
+}
+
+// 兩張名單的 [領取時間, 班級]，用來看哪個班正在上課
+function stampRows(ss) {
+  const out = [];
+  LISTS.forEach((name) => {
+    const sh = ss.getSheetByName(name);
+    if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach((r) => out.push([r[0], r[3]]));
+  });
+  return out;
 }
 
 // 學生送出前後一小時內有在領證書的班級＝那時正在電腦教室上課的班；rows 是 [時間, 班級]
@@ -731,27 +812,30 @@ function reconcileList() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('名單正在寫入，請稍後再試');
   try {
-    const sh = ss.getSheetByName(LIST);
-    const last = sh.getLastRow();
-    if (last < 2) return out;
-    const rows = sh.getRange(2, 4, last - 1, 6).getDisplayValues(); // D 班級 … I 名冊比對
-    const times = sh.getRange(2, 1, last - 1, 1).getValues().map((r, i) => [r[0], rows[i][0]]);
-    const de = [];
-    const hi = [];
-    rows.forEach((r, i) => {
-      const [cls, name, , , key, note] = r;
-      if (!name || note.startsWith('已更正')) { de.push([cls, name]); hi.push([key, note]); return; }
-      const at = times[i][0];
-      const f = matchRoster(cls, name, map, at instanceof Date ? busyClasses(times, at) : null);
-      out.checked++;
-      if (f.note === '✔ 相符') out.ok++;
-      else if (f.note.startsWith('已更正')) out.fixed.push(`${cls} ${name} → ${f.cls} ${f.name}`);
-      else out.missing.push(`${cls} ${name}（${f.note}）`);
-      de.push([f.cls, f.name]);
-      hi.push([CLS.test(f.cls) ? clsKey(f.cls) : key, f.note]);
+    const times = stampRows(ss); // 兩張名單一起看，才知道當時哪個班在上課
+    LISTS.forEach((sheet) => {
+      const sh = ss.getSheetByName(sheet);
+      const last = sh.getLastRow();
+      if (last < 2) return;
+      const rows = sh.getRange(2, 4, last - 1, 6).getDisplayValues(); // D 班級 … I 名冊比對
+      const stamps = sh.getRange(2, 1, last - 1, 1).getValues();
+      const de = [];
+      const hi = [];
+      rows.forEach((r, i) => {
+        const [cls, name, , , key, note] = r;
+        if (!name || note.startsWith('已更正')) { de.push([cls, name]); hi.push([key, note]); return; }
+        const at = stamps[i][0];
+        const f = matchRoster(cls, name, map, at instanceof Date ? busyClasses(times, at) : null);
+        out.checked++;
+        if (f.note === '✔ 相符') out.ok++;
+        else if (f.note.startsWith('已更正')) out.fixed.push(`${cls} ${name} → ${f.cls} ${f.name}`);
+        else out.missing.push(`${cls} ${name}（${f.note}）`);
+        de.push([f.cls, f.name]);
+        hi.push([CLS.test(f.cls) ? clsKey(f.cls) : key, f.note]);
+      });
+      sh.getRange(2, 4, rows.length, 2).setValues(de);
+      sh.getRange(2, 8, rows.length, 2).setValues(hi);
     });
-    sh.getRange(2, 4, rows.length, 2).setValues(de);
-    sh.getRange(2, 8, rows.length, 2).setValues(hi);
   } finally {
     lock.releaseLock();
   }
