@@ -433,8 +433,9 @@ function doPost(e) {
     setup();
     const sh = SpreadsheetApp.getActive().getSheetByName(LIST);
     // 先拿全校名冊更正打錯的字，名單和重複比對都用更正後的班級姓名；名冊內容不回傳給網站
-    const fix = matchRoster(cls, name, rosterMap());
     const last = sh.getLastRow();
+    const recent = last > 1 ? sh.getRange(2, 1, last - 1, 4).getValues().map((r) => [r[0], r[3]]) : [];
+    const fix = matchRoster(cls, name, rosterMap(), busyClasses(recent, new Date()));
     if (last > 1) {
       // 同一位孩子同一種證書只記一筆：電腦教室常換電腦、隔天重玩又領一次，回傳第一次的編號讓網站改用原本的日期
       const same = sh.getRange(2, 2, last - 1, 4).getDisplayValues().find((r) => r[1] === TITLES[level] && r[2] === fix.cls && r[3] === fix.name);
@@ -645,17 +646,56 @@ function oneOff(a, b) {
   return Math.max(x.length, y.length) - i - j === 1;
 }
 
+// 同一個字的不同寫法（異體字、日文字形），平板選字常跳出左邊那個；比對時當成同一個字，寫回名單一律用名冊的寫法
+const VARIANT = {
+  兪: '俞', 暁: '曉', 峯: '峰', 啓: '啟', 衞: '衛', 姸: '妍', 恒: '恆', 羣: '群', 綉: '繡',
+  呉: '吳', 黄: '黃', 曽: '曾', 静: '靜', 凉: '涼', 裏: '裡', 爲: '為', 眞: '真', 敎: '教',
+  甯: '寧', 晧: '皓', 頴: '穎', 濵: '濱', 徳: '德', 淸: '清', 靑: '青',
+};
+function norm(s) {
+  return [...s].map((c) => VARIANT[c] || c).join('');
+}
+
+// 學生送出前後一小時內有在領證書的班級＝那時正在電腦教室上課的班；rows 是 [時間, 班級]
+const SESSION_MS = 60 * 60 * 1000;
+function busyClasses(rows, t) {
+  const s = new Set();
+  rows.forEach(([at, c]) => { if (at instanceof Date && Math.abs(at - t) <= SESSION_MS) s.add(c); });
+  return s;
+}
+
 // 回傳更正後的班級姓名與比對結果；只有「唯一一個」可能的對象才自動改，其餘標出來給導師確認
-function matchRoster(cls, name, map) {
+// busy（可省略）：當時正在上課的班級，用來判斷「選錯班又打錯一個字」
+function matchRoster(cls, name, map, busy) {
   const all = Object.keys(map);
   if (!all.length) return { cls, name, note: '' };
   if ((map[cls] || []).includes(name)) return { cls, name, note: '✔ 相符' };
-  const near = [...new Set((map[cls] || []).filter((n) => oneOff(name, n)))];
-  const elsewhere = all.filter((c) => map[c].includes(name));
-  // 同班有相近的名字、別班又有一模一樣的名字，猜不出是打錯字還是選錯班，交給導師
-  if (near.length + elsewhere.length > 1) return { cls, name, note: '⚠ 名冊有好幾個可能的對象，請導師確認' };
-  if (near.length === 1) return { cls, name: near[0], note: `已更正姓名（原填：${name}）` };
-  if (elsewhere.length === 1) return { cls: elsewhere[0], name, note: `已更正班級（原填：${cls}）` };
+  const key = norm(name);
+  const uniq = (a) => [...new Set(a)];
+  const fixName = (n) => ({ cls, name: n, note: `已更正姓名（原填：${name}）` });
+  const fixBoth = (c, n) => ({ cls: c, name: n, note: n === name ? `已更正班級（原填：${cls}）` : `已更正班級與姓名（原填：${cls} ${name}）` });
+  const many = { cls, name, note: '⚠ 名冊有好幾個可能的對象，請導師確認' };
+  // 1. 同班、只是字的寫法不同（兪／俞）
+  const same = uniq((map[cls] || []).filter((n) => norm(n) === key));
+  if (same.length === 1) return fixName(same[0]);
+  // 2. 同班差一個字，或別班有同一個名字（選錯班）
+  const near = uniq((map[cls] || []).filter((n) => oneOff(key, norm(n))));
+  const elsewhere = [];
+  all.forEach((c) => { if (c !== cls) uniq(map[c].filter((n) => norm(n) === key)).forEach((n) => elsewhere.push([c, n])); });
+  // 同班有相近的名字、別班又有同一個名字，猜不出是打錯字還是選錯班，交給導師
+  if (near.length + elsewhere.length > 1) return many;
+  if (near.length === 1) return fixName(near[0]);
+  if (elsewhere.length === 1) return fixBoth(elsewhere[0][0], elsewhere[0][1]);
+  // 3. 選錯班又打錯一個字：只找同年級、當時正在上課的班；全部只有一個可能才改
+  if (busy && busy.size) {
+    const both = [];
+    all.forEach((c) => {
+      if (c === cls || c[0] !== cls[0] || !busy.has(c)) return;
+      uniq(map[c].filter((n) => oneOff(key, norm(n)))).forEach((n) => both.push([c, n]));
+    });
+    if (both.length > 1) return many;
+    if (both.length === 1) return fixBoth(both[0][0], both[0][1]);
+  }
   return { cls, name, note: '⚠ 名冊查無，請導師確認' };
 }
 
@@ -695,12 +735,14 @@ function reconcileList() {
     const last = sh.getLastRow();
     if (last < 2) return out;
     const rows = sh.getRange(2, 4, last - 1, 6).getDisplayValues(); // D 班級 … I 名冊比對
+    const times = sh.getRange(2, 1, last - 1, 1).getValues().map((r, i) => [r[0], rows[i][0]]);
     const de = [];
     const hi = [];
-    rows.forEach((r) => {
+    rows.forEach((r, i) => {
       const [cls, name, , , key, note] = r;
       if (!name || note.startsWith('已更正')) { de.push([cls, name]); hi.push([key, note]); return; }
-      const f = matchRoster(cls, name, map);
+      const at = times[i][0];
+      const f = matchRoster(cls, name, map, at instanceof Date ? busyClasses(times, at) : null);
       out.checked++;
       if (f.note === '✔ 相符') out.ok++;
       else if (f.note.startsWith('已更正')) out.fixed.push(`${cls} ${name} → ${f.cls} ${f.name}`);
