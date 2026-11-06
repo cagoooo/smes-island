@@ -8,6 +8,8 @@ const LISTS = [LIST, TRAIL];
 const listOf = (level) => (level === 'M' ? LIST : TRAIL);
 const STATS = '統計';
 const VIEW = '分類名單';
+const PRINT = '列印清單';
+const REDEEM = '11 月 11 日（三）起'; // 和網站 src/data/challenge.js 的 REDEEM 相同
 const BANK = '題庫';
 const GUIDE = '出題說明';
 const OVERVIEW = '題庫總覽';
@@ -210,6 +212,68 @@ function classFormula() {
     + `n,MAP(c,LAMBDA(x,COUNTIF(${q}!D2:D,x))),y,MAP(c,LAMBDA(x,COUNTIFS(${q}!D2:D,x,${q}!F2:F,TRUE))),w,MAP(c,LAMBDA(x,COUNTIFS(${q}!D2:D,x,${q}!F2:F,FALSE))),HSTACK(c,n,y,w)),"尚無資料")`;
 }
 
+// 列印清單：給校長室印出來，學生來兌換時對照證書勾選。內容全用公式從發獎名單算，永遠是最新的；
+// 右上角的連結把 A～G 欄匯出成 A4 直式 PDF（每頁都重複標題列），不用另外授權
+const PRINT_REV = 2; // 改了列印版面就加 1，下次開啟會整頁重建（版號記在分頁的隱藏標記，不能用註解：註解會被印出來）
+function setupPrint(ss) {
+  const old = ss.getSheetByName(PRINT);
+  const mark = (sh) => sh.getDeveloperMetadata().filter((m) => m.getKey() === 'printRev');
+  if (old && mark(old).some((m) => m.getValue() === String(PRINT_REV))) return false;
+  const sh = old || ss.insertSheet(PRINT, 1);
+  sh.clear();
+  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).clearNote();
+  mark(sh).forEach((m) => m.remove());
+  sh.addDeveloperMetadata('printRev', String(PRINT_REV));
+  sh.getRange('A1:G1').merge().setValue('石門品牌群島「尋河馬達人」校長室兌換對照清單')
+    .setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+  const q = `'${LIST}'`;
+  sh.getRange('A2:G2').merge();
+  sh.getRange('A2').setFormula(`="兌換日期：${REDEEM}　　共 "&COUNTIF(${q}!C:C,"${TITLES.M}")&" 人　　已兌換 "&COUNTIF(${q}!F:F,TRUE)&" 人　　列印時間："&TEXT(NOW(),"yyyy/m/d HH:mm")`)
+    .setHorizontalAlignment('center').setFontSize(11);
+  sh.getRange('A3:G3').merge().setValue('核對方式：看學生證書上的班級、姓名與證書編號，兌換後在「兌換」欄打勾；「備註」寫的是證書上原本填錯的字')
+    .setHorizontalAlignment('center').setFontSize(10).setFontColor('#6b5a3c').setWrap(true);
+  sh.getRange('A4:G4').setValues([['序號', '班級', '姓名', '證書編號', '取得日期', '兌換', '備註']])
+    .setFontWeight('bold').setBackground('#efe3c8').setHorizontalAlignment('center');
+  // ARRAYFORMULA 包住整段，陣列運算才會逐列算（不包的話只會取同一列）
+  sh.getRange('A5').setFormula(`=IFERROR(ARRAYFORMULA(LET(d,SORT(FILTER(${q}!A2:I,${q}!E2:E<>""),8,TRUE,5,TRUE,1,TRUE),`
+    + `n,INDEX(d,,9),HSTACK(SEQUENCE(ROWS(d)),INDEX(d,,4),INDEX(d,,5),INDEX(d,,2),TEXT(INDEX(d,,1),"m/d"),`
+    + `IF(INDEX(d,,6)=TRUE,"✔ "&IFERROR(TEXT(INDEX(d,,7),"m/d"),"已兌換"),"□"),`
+    + `IF(LEFT(n,3)="已更正","證書上寫："&IFERROR(REGEXEXTRACT(n,"原填：([^，）]+)"),""),"")))),"目前還沒有尋河馬達人")`);
+  const body = sh.getRange('A4:G400');
+  body.setBorder(true, true, true, true, true, true, '#b9a77f', SpreadsheetApp.BorderStyle.SOLID);
+  sh.getRange('A5:G400').setFontSize(12).setVerticalAlignment('middle');
+  sh.getRange('A5:B400').setHorizontalAlignment('center');
+  sh.getRange('D5:F400').setHorizontalAlignment('center');
+  sh.getRange('F5:F400').setFontSize(16);
+  sh.getRange('G5:G400').setFontSize(10).setWrap(true);
+  sh.setRowHeights(5, 396, 30);
+  // 同一班底色相同、換班就換色，校長一眼看出班級分界
+  sh.setConditionalFormatRules([SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=AND($B5<>"",ISODD(SUMPRODUCT(($B$5:$B5<>"")/COUNTIF($B$5:$B5,$B$5:$B5&""))))')
+    .setBackground('#f7f1e3').setRanges([sh.getRange('A5:G400')]).build()]);
+  [48, 88, 96, 150, 72, 80, 190].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setColumnWidth(8, 20);
+  const url = `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&gid=${sh.getSheetId()}`
+    + '&size=A4&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenum=CENTER&fzr=true'
+    + '&top_margin=0.4&bottom_margin=0.4&left_margin=0.4&right_margin=0.4&horizontal_alignment=CENTER&r1=0&c1=0&c2=7&r2=';
+  sh.getRange('I1:I2').merge();
+  sh.getRange('I1').setFormula(`=HYPERLINK("${url}"&(4+COUNTA(B5:B)),"🖨️ 一鍵列印（開啟 PDF）")`)
+    .setFontSize(14).setFontWeight('bold').setBackground('#d9432f').setFontColor('#ffffff')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sh.getRange('I3').setValue('點上面的紅色按鈕 → 再點跳出的連結，PDF 開好後按印表機圖示').setFontSize(9).setWrap(true).setFontColor('#6b5a3c');
+  sh.setColumnWidth(9, 210);
+  sh.setFrozenRows(4);
+  sh.setTabColor('#d9432f');
+  return true;
+}
+
+function openPrint() {
+  const ss = SpreadsheetApp.getActive();
+  setup();
+  ss.setActiveSheet(ss.getSheetByName(PRINT));
+  ss.toast('點右上角紅色的「🖨️ 一鍵列印」，PDF 開好後按印表機圖示', '列印清單', 8);
+}
+
 // 統計：校長室備獎用，只算尋河馬達人；各班一列照排序碼排。前兩段只列人次參考
 const STATS_TITLE = '尋河馬達人發獎統計';
 const STATS_REV = 3; // 改了統計版面就加 1，下次開啟會整頁重建
@@ -377,7 +441,7 @@ function setupOverview(ss) {
 // 平常只露出發獎名單、統計和出題三頁；其他分頁收起來（隱藏，不刪除），選單「收起來的分頁」打得開
 const TUCKED = [VIEW, TRAIL, DUP, ROSTER];
 function arrangeTabs(ss) {
-  [[LIST, LIST_TAB], [STATS, LIST_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB]].forEach(([name, color], i) => {
+  [[LIST, LIST_TAB], [PRINT, '#d9432f'], [STATS, LIST_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB]].forEach(([name, color], i) => {
     const sh = ss.getSheetByName(name);
     if (!sh) return;
     sh.setTabColor(color);
@@ -397,7 +461,7 @@ function tuck(ss) {
 // 名單和統計是發獎資料，只有試算表擁有者（資訊組）能改；已領獎、領獎時間兩欄留著，之後校長室加入編輯也能打勾
 // 題庫標題列改到時跳出提醒，避免欄位被打亂
 function guard(ss) {
-  [[LIST, ['F2:G']], [TRAIL, []], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []]].forEach(([name, open]) => {
+  [[LIST, ['F2:G']], [TRAIL, []], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []], [PRINT, []]].forEach(([name, open]) => {
     const sh = ss.getSheetByName(name);
     if (!sh || sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) return;
     const p = sh.protect().setDescription('發獎資料，只有資訊組能修改');
@@ -440,11 +504,12 @@ function setup() {
   const moved = migrateList(ss);
   LISTS.forEach((name) => setupList(ss, name));
   setupStats(ss);
+  const printed = setupPrint(ss);
   setupView(ss);
   setupBank(ss);
   // 總覽、分頁排序與保護只是方便使用，出錯也不能擋住網站寫入名單
   try {
-    if (setupOverview(ss) || moved || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
+    if (setupOverview(ss) || moved || printed || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
     guard(ss);
   } catch (err) {
     console.error(err);
@@ -524,6 +589,8 @@ function onOpen() {
   const grade = ui.createMenu('依年級');
   '一二三四五六'.split('').forEach((g, i) => grade.addItem(`${g}年級`, `grade${i + 1}`));
   ui.createMenu('🦛 小河馬名單')
+    .addItem('🖨️ 列印校長室對照清單', 'openPrint')
+    .addSeparator()
     .addItem('只看尚未領獎', 'showPending')
     .addItem('只看已領獎', 'showDone')
     .addSubMenu(grade)
