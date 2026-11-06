@@ -88,7 +88,7 @@ export function shelfHtml(r = reading.get()) {
 }
 
 export function listHtml(list, r) {
-  if (!list.length) return '<p class="note">圖書館老師還在準備共讀題目，過幾天再來看看！</p>';
+  if (!list.length) return '<p class="note">圖推老師還在準備共讀題目，過幾天再來看看！</p>';
   return `<div class="rd-books">${list.map(({ k, n }, i) => {
     const st = bookState(r, k);
     const tag = st === 'done' ? '✔ 讀懂了' : st === 'wait' ? '明天再來' : r.run?.k === k && r.run.state === 'play' ? '繼續作答' : `${n} 題`;

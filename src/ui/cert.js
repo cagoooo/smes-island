@@ -53,7 +53,7 @@ export async function sendCerts() {
     if (info.sent[level]) continue;
     try {
       const body = { level, cls: info.cls, name: info.name, date: info.dates[level], code: serial(level, info) };
-      if (level === 'R') body.books = Object.keys(reading.get().done); // 讀懂了哪幾本，圖書館老師看得到
+      if (level === 'R') body.books = Object.keys(reading.get().done); // 讀懂了哪幾本，圖推老師看得到
       const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
       const r = await res.json();
       const first = r.dup && dateOfCode(r.code);
