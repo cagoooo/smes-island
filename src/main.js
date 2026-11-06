@@ -9,6 +9,7 @@ import { countVisit, rollNumber } from './ui/visits.js';
 import { showFound, flyCount, showFinale, closeFinale, hippoGrid } from './ui/hippo.js';
 import { TIERS, certInfo, issue, drawCert, printCert, certTiers, sendCerts, validName } from './ui/cert.js';
 import { challenge, loadBank, newRun, answer, levelHtml, rules } from './ui/challenge.js';
+import { reading, readCount, READ_NEED, bookList, startBook, pickAnswer, readRules, shelfHtml, listHtml, readLevelHtml, reviewHtml, pretty } from './ui/reading.js';
 import { BANDS, PASS, REDEEM, QUEST, bandOf } from './data/challenge.js';
 import { ISLANDS, SCHOOL, HONORS, QUOTES, QUIZ, QUIZ_RESULT, LINKS, HIPPOS, PEOPLE_LINES } from './data/site.js';
 import { content, renderBlock, currentGallery, resetGallery, esc, full, nativeWidth, ilrRows, flatten } from './ui/blocks.js';
@@ -193,11 +194,12 @@ function closeModal() {
 const dialogHead = (title) => `<div class="dialog-head"><h2>${esc(title)}</h2><button class="round" data-act="modalClose" aria-label="關閉">×</button></div>`;
 
 // 共用平板要交給下一位時的清除入口，寫在一起讓文字和按鈕一致
-const hasProgress = () => S.hippos.size > 0 || S.stamps.size > 0 || !!certInfo.get() || !!challenge.get();
+const hasProgress = () => S.hippos.size > 0 || S.stamps.size > 0 || !!certInfo.get() || !!challenge.get() || readCount() > 0;
 const passed = () => challenge.get()?.state === 'pass';
 const ready = () => S.hippos.size === 12 && S.stamps.size === 12;
 const tierState = () => ({ hippos: S.hippos.size, stamps: S.stamps.size, passed: passed(), playing: challenge.get()?.state === 'play' });
-const lvl = (v) => (v === 'M' ? 'M' : +v);
+const lvl = (v) => (v === 'M' || v === 'R' ? v : +v);
+const scoreOf = (level) => (level === 'M' ? challenge.get()?.score : level === 'R' ? readCount() : 0);
 const handover = (text, quiet = false) => `<div class="handover${quiet ? ' quiet' : ''}"><p>${text}</p><button class="cta ${quiet ? 'plain' : 'koi'}" data-act="certReset">換下一位同學</button></div>`;
 const paintNext = () => { $('#nextBtn').hidden = !hasProgress(); };
 
@@ -205,7 +207,7 @@ function setHint() {
   paintNext();
   const n = S.hippos.size;
   $('#hintText').textContent = n < 12 ? `找到 6 隻、12 隻都能領證書，已找到 ${n} 隻`
-    : passed() ? `你是尋河馬達人！${REDEEM}帶證書到校長室兌換招待券`
+    : passed() ? (readCount() >= READ_NEED ? '你是圖書館共讀達人！繼續讀更多好書吧' : `你是尋河馬達人！還可以挑戰第四段圖書館共讀達人（${readCount()} / ${READ_NEED} 本）`)
       : S.stamps.size < 12 ? `12 隻都找到了！再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
         : '12 隻、12 枚章都集滿了，快來挑戰尋河馬達人！';
 }
@@ -781,7 +783,8 @@ function showMission() {
       <li><strong>闖到尋河馬達人</strong><span>只有第三段「尋河馬達人」的證書可以到校長室兌換獎勵，石門國小的同學加油！</span></li>
     </ol>
     <div class="stage3"><div><strong>第三段・尋河馬達人</strong><span>找齊 12 隻、集滿 12 枚閱讀護照章，再通過十二座島的閱讀挑戰（12 題答對 ${PASS} 題），就能領紫色證書，${REDEEM}到校長室兌換<b>小客人招待券</b>！</span></div><button class="cta koi" data-act="challenge">看挑戰</button></div>
-    <p class="stage4">第四段「AI科技島」即將登場：高年級專題發表，中低年級一起來觀賞</p>
+    <div class="stage3 stage-read"><div><strong>第四段・圖書館共讀達人</strong><span>成為尋河馬達人後，選一本在圖書館讀完的書來答題，要全部答對才算讀懂。讀懂 ${READ_NEED} 本，領「圖書館共讀達人」紀念證書！</span></div><button class="cta moss" data-act="read">看共讀挑戰</button></div>
+    <p class="stage4">第五段「AI科技島」即將登場：高年級專題發表，中低年級一起來觀賞</p>
     <p class="mission-now">目前找到 <b>${n}</b> / 12 隻，${next}</p>
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <div class="btn-row"><button class="cta koi" data-act="modalClose">開始尋寶</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
@@ -794,6 +797,7 @@ function showPassport() {
     <h3 class="hippo-title">小河馬證書</h3>
     <p>找到 6 隻、12 隻各可領一張紀念證書；集滿 12 枚章再通過閱讀挑戰，就能領「尋河馬達人」，${REDEEM}到校長室兌換小客人招待券！</p>
     ${certTiers(tierState())}
+    ${passed() ? `<h3 class="hippo-title">共讀書架（讀懂 ${readCount()} / ${READ_NEED} 本）</h3>${shelfHtml()}` : ''}
     ${hasProgress() ? handover('平板要交給下一位同學了嗎？按這裡清除紀錄，下一位才能自己尋寶。') : ''}
     <h3 class="hippo-title">小河馬圖鑑</h3>
     ${hippoGrid(S.hippos)}
@@ -838,15 +842,16 @@ let certUrl = '';
 
 async function showCert(level) {
   if (level === 'M' && !passed()) { showChallenge(); return; }
+  if (level === 'R' && (!passed() || readCount() < READ_NEED)) { showRead(); return; }
   const info = certInfo.get();
   if (!info) { showCertForm(level); return; }
-  const fresh = issue(level, '', '', level === 'M' ? challenge.get().score : 0);
+  const fresh = issue(level, '', '', scoreOf(level));
   const moved = sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
-    <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : '這是紀念證書，存起來或印出來留念；成為「尋河馬達人」就能到校長室兌換小客人招待券！'}手機也可以長按圖片儲存</p>
+    <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : level === 'R' ? '這是紀念證書，存起來或印出來留念，謝謝你認真讀完這些書！' : '這是紀念證書，存起來或印出來留念；成為「尋河馬達人」就能到校長室兌換小客人招待券！'}手機也可以長按圖片儲存</p>
     <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button>
-    <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' || (level === 12 && passed()) ? '關閉證書，繼續逛島' : level === 12 ? '前往第三段：尋河馬達人' : '關閉證書，繼續闖關'} ›</button></div>
+    <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' ? '前往第四段：圖書館共讀達人' : level === 'R' || (level === 12 && passed()) ? '關閉證書，繼續逛島' : level === 12 ? '前往第三段：尋河馬達人' : '關閉證書，繼續闖關'} ›</button></div>
     ${handover('平板要交給下一位同學時才按這裡，記得先把證書存好或印好。', true)}</div>`, true);
   try {
     const blob = await drawCert(level, fresh);
@@ -1037,7 +1042,70 @@ function chPassed(st) {
   openModal(`${dialogHead('尋河馬達人')}<div class="dialog-body ch-end">
     <p>你已經通過十二座島的閱讀挑戰，12 題答對 <b>${st.score}</b> 題！</p>
     <p>領取證書後，<b>${REDEEM}</b>帶到校長室兌換小客人招待券。</p>
-    <div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="M">領取證書</button><button class="cta moss" data-act="passport">看閱讀護照</button></div></div>`);
+    <div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="M">領取證書</button><button class="cta moss" data-act="read">第四段：圖書館共讀達人</button></div></div>`);
+}
+
+// ───────── 第四段：圖書館共讀挑戰 ─────────
+// 題目要真的讀過那本書才答得出來：作答時不公布對錯，全部答對才算讀懂，沒過隔天才能再挑戰同一本
+let readBooks = [];
+let readList = [];
+let readPicked = '';
+const readBand = () => challenge.get()?.band || '中';
+
+async function showRead() {
+  if (!passed()) { rdLocked(); return; }
+  const r = reading.get();
+  if (r.run?.state === 'play') { rdLevel(); return; }
+  openModal(`${dialogHead('第四段：圖書館共讀達人')}<div class="dialog-body"><p>圖書館的書單準備中…</p></div>`);
+  ({ books: readBooks } = await loadBank());
+  readList = bookList(readBooks, readBand());
+  const n = readCount(r);
+  openModal(`${dialogHead('第四段：圖書館共讀達人')}<div class="dialog-body">
+    <p>讀懂 ${READ_NEED} 本圖書館的書，就能領「圖書館共讀達人」紀念證書。你的題目來自<b>${BANDS[readBand()]}</b>題庫。</p>${readRules}
+    <h3 class="hippo-title">共讀書架（讀懂 ${n} / ${READ_NEED} 本）</h3>${shelfHtml(r)}
+    ${n >= READ_NEED ? '<div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="R">領取共讀達人證書</button></div>' : ''}
+    <h3 class="hippo-title">選一本你讀完的書</h3>${listHtml(readList, r)}
+    <div class="btn-row"><button class="cta lake" data-act="modalClose">先去圖書館讀書</button></div></div>`);
+}
+
+function rdLocked() {
+  openModal(`${dialogHead('第四段：圖書館共讀達人')}<div class="dialog-body">
+    <p>先成為「尋河馬達人」，就能挑戰第四段！</p>${readRules}
+    <div class="btn-row"><button class="cta koi" data-act="challenge">看第三段：尋河馬達人</button><button class="cta lake" data-act="modalClose">繼續尋寶</button></div></div>`);
+}
+
+function rdLevel() {
+  const r = reading.get();
+  if (r.run?.state !== 'play') { showRead(); return; }
+  openModal(`${dialogHead('📚 圖書館共讀挑戰')}<div class="dialog-body ch">${readLevelHtml(r.run)}</div>`);
+}
+
+function rdPick(n) {
+  const r = reading.get();
+  if (r.run?.state !== 'play') return;
+  pickAnswer(r, n);
+  const run = r.run;
+  if (run.state === 'play') { reading.set(r); rdLevel(); return; }
+  r.run = null;
+  reading.set(r);
+  setHint();
+  const total = run.levels.length;
+  const count = readCount(r);
+  if (run.state === 'pass') {
+    music.sfx('chime');
+    openModal(`${dialogHead('讀懂了！')}<div class="dialog-body ch-end">
+      <p>《${esc(pretty(run.k))}》${total} 題全部答對，這本書放上你的共讀書架了！</p>
+      ${shelfHtml(r)}
+      <p>${count >= READ_NEED ? `讀懂 ${count} 本了，可以領「圖書館共讀達人」證書！` : `再讀懂 ${READ_NEED - count} 本，就能領「圖書館共讀達人」證書。`}</p>
+      <details class="rd-more"><summary>看每一題的答案和解說</summary>${reviewHtml(run)}</details>
+      <div class="btn-row">${count >= READ_NEED ? '<button class="cta koi" data-act="certOpen" data-level="R">領取證書</button>' : ''}<button class="cta moss" data-act="read">回到書單</button></div></div>`);
+    return;
+  }
+  music.sfx('boing');
+  openModal(`${dialogHead('還差一點點')}<div class="dialog-body ch-end">
+    <p>《${esc(pretty(run.k))}》${total} 題答對 <b>${run.score}</b> 題，要全部答對才算讀懂這本書。</p>
+    <p>先回圖書館把這本書再讀一次，<b>明天</b>再來挑戰！今天也可以挑戰別本讀過的書。</p>
+    <div class="btn-row"><button class="cta moss" data-act="read">回到書單</button><button class="cta lake" data-act="modalClose">先休息一下</button></div></div>`);
 }
 
 // ───────── 校園日誌 ─────────
@@ -1368,13 +1436,33 @@ const actions = {
   finaleCert(t) { closeFinale(); showCert(lvl(t.dataset.level)); },
   certOpen(t) { showCert(lvl(t.dataset.level)); },
   challenge() { closeFinale(); showChallenge(); },
+  read() { closeFinale(); showRead(); },
+  rdStart(t) {
+    const it = readList[+t.dataset.book];
+    if (!it) return;
+    const r = reading.get();
+    if (r.run?.state === 'play' && r.run.k === it.k) { rdLevel(); return; }
+    readPicked = it.k;
+    openModal(`${dialogHead('確定要挑戰這本書嗎？')}<div class="dialog-body cert-form">
+      <p class="cert-who">📚 ${esc(pretty(it.k))}</p>
+      <p>共 <b>${it.n}</b> 題，作答時不公布對錯，要全部答對才算讀懂。沒過的話，今天就不能再挑戰這本書了。</p>
+      <div class="btn-row"><button class="cta koi" data-act="rdGo">我讀完了，開始作答</button><button class="cta lake" data-act="read">再想想</button></div></div>`);
+  },
+  rdGo() {
+    const r = reading.get();
+    if (!readPicked || r.done[readPicked] || r.run?.state === 'play') { rdLevel(); return; }
+    startBook(r, readBooks, readPicked, readBand());
+    if (!r.run.levels.length) { r.run = null; reading.set(r); showRead(); return; }
+    reading.set(r);
+    rdLevel();
+  },
   async chStart(t) {
     S.stampRun = false;
     paintStampChip();
     const prev = challenge.get();
     t.disabled = true;
     t.textContent = '小河馬準備題目中…';
-    const sheetItems = await loadBank();
+    const { items: sheetItems } = await loadBank();
     challenge.set(newRun(t.dataset.band, sheetItems, prev?.levels?.map((l) => l.q) || []));
     chLevel();
   },
@@ -1406,7 +1494,7 @@ const actions = {
   },
   certIssue(t) {
     const level = lvl(t.dataset.level);
-    issue(level, t.dataset.cls, t.dataset.name, level === 'M' ? challenge.get()?.score : 0);
+    issue(level, t.dataset.cls, t.dataset.name, scoreOf(level));
     paintNext();
     showCert(level);
   },
@@ -1416,8 +1504,10 @@ const actions = {
     const level = lvl(t.dataset.level);
     closeModal();
     setHint();
-    // 領完小達人證書，直接帶到第三段：章還沒集滿就看還差什麼，集滿了就能開始挑戰
+    // 領完小達人證書，直接帶到第三段：章還沒集滿就看還差什麼，集滿了就能開始挑戰；領完達人證書就帶到第四段
     if (level === 12 && !passed()) { showChallenge(); return; }
+    if (level === 'M') { toast(`${REDEEM}，記得帶證書到校長室兌換小客人招待券！`); showRead(); return; }
+    if (level === 'R') { toast('你是圖書館共讀達人！繼續走進圖書館，讀更多好書吧'); return; }
     toast(level === 6 ? '繼續找小河馬，找齊 12 隻還有金色證書！'
       : level === 'M' ? `${REDEEM}，記得帶證書到校長室兌換小客人招待券！`
         : S.stamps.size < 12 ? `再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
@@ -1436,6 +1526,7 @@ const actions = {
     store.set('smes-last-active', 0);
     certInfo.clear();
     challenge.clear();
+    reading.clear();
     location.reload();
   },
   lbClose() { lbZoom(false); $('#lb').classList.remove('open'); },
@@ -1538,6 +1629,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (d.ch !== undefined) { chPick(+d.ch); return; }
+  if (d.rd !== undefined) { rdPick(+d.rd); return; }
   if (d.quiz !== undefined) {
     music.sfx(+d.quiz + 1 >= QUIZ.length ? 'chime' : 'correct');
     const tally = JSON.parse($('#dialog').dataset.tally || '{}');

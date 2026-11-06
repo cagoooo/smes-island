@@ -1,5 +1,7 @@
 // 小河馬尋寶證書：找到 6 隻、12 隻各領一張紀念證書，第三段通過島嶼閱讀挑戰再領「尋河馬達人」，只有這張帶去校長室換獎勵
+// 第四段讀懂 3 本圖書館共讀書，領「圖書館共讀達人」紀念證書（不兌換）
 // 證書用 canvas 畫在裝置上；班級姓名另外送到學校的試算表，校長室用來核對領獎（後端在 gas/）
+import { reading, readCount, READ_NEED } from './reading.js';
 export const API = 'https://script.google.com/macros/s/AKfycbyH1eIe5fGM319XxjBJf5Eb_PHjMvAS9SDXnlffIm0Pjycftp3F8Pd152iIOWnAn9WF/exec';
 const KEY = 'smes-hippo-cert';
 const W = 2000;
@@ -12,6 +14,7 @@ export const TIERS = {
   6: { title: '尋寶探險家', color: '#1f7a9c', box: [360, 240, 1680, 1090] },
   12: { title: '尋寶小達人', color: '#b5571a', box: [390, 275, 1640, 1125] },
   M: { title: '尋河馬達人', color: '#7a3f8f', box: [360, 290, 1650, 1110] },
+  R: { title: '圖書館共讀達人', color: '#24705f', box: [350, 285, 1650, 1025] },
 };
 
 export const certInfo = {
@@ -49,7 +52,9 @@ export async function sendCerts() {
   for (const level of Object.keys(info.dates)) {
     if (info.sent[level]) continue;
     try {
-      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ level, cls: info.cls, name: info.name, date: info.dates[level], code: serial(level, info) }) });
+      const body = { level, cls: info.cls, name: info.name, date: info.dates[level], code: serial(level, info) };
+      if (level === 'R') body.books = Object.keys(reading.get().done); // 讀懂了哪幾本，圖書館老師看得到
+      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
       const r = await res.json();
       const first = r.dup && dateOfCode(r.code);
       if (first && first !== info.dates[level]) {
@@ -93,6 +98,9 @@ function line(ctx, text, x, y, size, opts = {}) {
 // 每張證書的說明文字；第三段多了閱讀挑戰的成績，獎勵是校長室小客人招待券
 function rows(level, info) {
   const t = TIERS[level];
+  if (level === 'R') {
+    return [`讀懂 ${info.scores?.R || READ_NEED} 本圖書館的書，共讀挑戰全部答對`, `榮獲「${t.title}」`, '繼續走進圖書館，讀更多好書吧！'];
+  }
   if (level !== 'M') {
     return [`走遍石門品牌群島，找到 ${level} 隻小河馬`, `榮獲「${t.title}」`, '闖過第三段，成為尋河馬達人吧！'];
   }
@@ -117,15 +125,19 @@ export async function drawCert(level, info) {
   c.height = H;
   const ctx = c.getContext('2d');
   ctx.drawImage(bg, 0, 0, W, H);
-  ctx.drawImage(logo, cx - 62, y0 + 30, 124, 124 * logo.height / logo.width);
-  line(ctx, '榮譽證書', cx, y0 + 262, 98, { color: t.color });
-  line(ctx, who, cx, y0 + 380, 66);
-  line(ctx, desc, cx, y0 + 472, 46, { weight: 400 });
-  line(ctx, title, cx, y0 + 572, 66, { color: t.color });
-  line(ctx, tip, cx, y0 + 652, 40, { weight: 400 });
+  // 版面以 820 高的留白設計；留白比較矮的底圖（共讀達人）整體等比縮小
+  const k = Math.min(1, (y1 - y0) / 820);
+  const at = (dy) => y0 + dy * k;
+  const fs = (n) => Math.round(n * k);
+  ctx.drawImage(logo, cx - 62 * k, at(30), 124 * k, 124 * k * logo.height / logo.width);
+  line(ctx, '榮譽證書', cx, at(262), fs(98), { color: t.color });
+  line(ctx, who, cx, at(380), fs(66));
+  line(ctx, desc, cx, at(472), fs(46), { weight: 400 });
+  line(ctx, title, cx, at(572), fs(66), { color: t.color });
+  line(ctx, tip, cx, at(652), fs(40), { weight: 400 });
   // 底圖四角有河馬和葉飾，落款集中在中間才不會壓到
-  line(ctx, sign, cx, y1 - 92, 38, { max: 840 });
-  line(ctx, stamp, cx, y1 - 44, 30, { weight: 400, max: 840 });
+  line(ctx, sign, cx, y1 - 92 * k, fs(38), { max: 840 });
+  line(ctx, stamp, cx, y1 - 44 * k, fs(30), { weight: 400, max: 840 });
   return new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.92));
 }
 
@@ -143,7 +155,7 @@ export function printCert(url) {
   document.body.append(im);
 }
 
-// 閱讀護照裡的證書進度：前兩段看找到幾隻，第三段要集滿章再過閱讀挑戰，第四段先預告
+// 閱讀護照裡的證書進度：前兩段看找到幾隻，第三段要集滿章再過閱讀挑戰，第四段讀懂 3 本共讀書，第五段先預告
 export function certTiers({ hippos, stamps, passed, playing }) {
   const hunt = [6, 12].map((n) => {
     const t = TIERS[n];
@@ -156,6 +168,13 @@ export function certTiers({ hippos, stamps, passed, playing }) {
   const master = passed
     ? `<button class="cert-tier on" style="--c:${m.color}" data-act="certOpen" data-level="M"><small>第三段</small><strong>${m.title}</strong><span>通過閱讀挑戰</span><b>領取證書</b></button>`
     : `<button class="cert-tier ${ready ? 'on go' : 'lock'}" style="--c:${m.color}" data-act="challenge"><small>第三段</small><strong>${m.title}</strong><span>12 隻＋12 枚章＋閱讀挑戰</span><b>${ready ? (playing ? '繼續挑戰' : '開始挑戰') : `還差 ${lack}`}</b></button>`;
-  const soon = '<div class="cert-tier soon"><small>第四段</small><strong>AI科技島</strong><span>高年級專題發表</span><b>即將登場</b></div>';
-  return `<div class="cert-tiers">${hunt.join('')}${master}${soon}</div>`;
+  const r = TIERS.R;
+  const n = readCount();
+  const read = !passed
+    ? `<button class="cert-tier lock" style="--c:${r.color}" data-act="read"><small>第四段</small><strong>${r.title}</strong><span>讀懂 ${READ_NEED} 本圖書館的書</span><b>先成為尋河馬達人</b></button>`
+    : n >= READ_NEED
+      ? `<button class="cert-tier on" style="--c:${r.color}" data-act="certOpen" data-level="R"><small>第四段</small><strong>${r.title}</strong><span>讀懂 ${n} 本書</span><b>領取證書</b></button>`
+      : `<button class="cert-tier on go" style="--c:${r.color}" data-act="read"><small>第四段</small><strong>${r.title}</strong><span>讀懂 ${n} / ${READ_NEED} 本</span><b>${n ? '繼續共讀挑戰' : '開始共讀挑戰'}</b></button>`;
+  const soon = '<div class="cert-tier soon"><small>第五段</small><strong>AI科技島</strong><span>高年級專題發表</span><b>即將登場</b></div>';
+  return `<div class="cert-tiers">${hunt.join('')}${master}${read}${soon}</div>`;
 }

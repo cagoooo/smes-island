@@ -23,21 +23,28 @@ const valid = (it) => it && '低中高'.includes(it.b) && (order.includes(it.i) 
   && typeof it.q === 'string' && it.q.trim() && Array.isArray(it.o) && it.o.length >= 2 && it.o.length <= 4
   && it.o.every((s) => typeof s === 'string' && s.trim()) && Number.isInteger(it.a) && it.a >= 0 && it.a < it.o.length;
 
+// 第四段的共讀題目（一本書一組）跟著一起讀；舊版快取沒有共讀題目，要重抓
+const validBook = (it) => it && typeof it.k === 'string' && it.k.trim() && '低中高'.includes(it.b)
+  && typeof it.q === 'string' && it.q.trim() && Array.isArray(it.o) && it.o.length >= 2 && it.o.length <= 4
+  && it.o.every((s) => typeof s === 'string' && s.trim()) && Number.isInteger(it.a) && it.a >= 0 && it.a < it.o.length;
+
+// 回傳 { items: 島嶼題目, books: 共讀題目 }
 export async function loadBank() {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(BANK_KEY)); } catch { /* 沒有快取 */ }
-  if (cached && Date.now() - cached.t < BANK_TTL) return cached.items;
+  if (cached && Array.isArray(cached.books) && Date.now() - cached.t < BANK_TTL) return { items: cached.items, books: cached.books };
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 6000);
   try {
     const r = await (await fetch(`${API}?bank=1`, { signal: ctl.signal })).json();
     if (r.ok && Array.isArray(r.items)) {
       const items = r.items.filter(valid);
-      try { localStorage.setItem(BANK_KEY, JSON.stringify({ t: Date.now(), items })); } catch { /* 無痕模式略過 */ }
-      return items;
+      const books = (Array.isArray(r.books) ? r.books : []).filter(validBook);
+      try { localStorage.setItem(BANK_KEY, JSON.stringify({ t: Date.now(), items, books })); } catch { /* 無痕模式略過 */ }
+      return { items, books };
     }
   } catch { /* 連不上就用上次的題庫或內建題 */ } finally { clearTimeout(timer); }
-  return cached?.items || [];
+  return { items: cached?.items || [], books: cached?.books || [] };
 }
 
 function shuffle(a) {

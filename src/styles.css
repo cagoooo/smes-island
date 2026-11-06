@@ -758,6 +758,28 @@ body.listing .walkbar { display: none; }
 .ch-need li.ok::before { content: "✓"; display: grid; place-items: center; background: var(--moss); color: #fff; font-size: .8rem; font-weight: 700; box-shadow: none; }
 .ch-need span { color: var(--ink-3); font-weight: 700; }
 .ch-end { text-align: center; }
+.cert-tier.soon { grid-column: 1 / -1; }
+/* 第四段：圖書館共讀達人 */
+.stage-read { background: color-mix(in srgb, #24705f 10%, #fff); border-color: #24705f; }
+.stage-read strong, .stage-read b { color: #1d5c4e; }
+.rd-hint { font-size: var(--fs-xs); font-weight: 700; color: #1d5c4e; }
+.rd-shelf { display: flex; align-items: flex-end; gap: 6px; min-height: 96px; margin-top: 8px; padding: 10px 12px 0; border-radius: 10px 10px 4px 4px; background: linear-gradient(#f4ead7, #efe1c6); border-bottom: 10px solid #8a5a32; overflow-x: auto; }
+.rd-spine { flex: 0 0 auto; width: 34px; height: 76px; border-radius: 4px 4px 0 0; border: 2px dashed #c9b48f; }
+.rd-spine.on { width: auto; max-width: 9.5em; height: 86px; padding: 6px 4px; border: none; background: linear-gradient(90deg, #1d5c4e, #2f8f7a 40%, #24705f); color: #fff; font-size: .78rem; font-weight: 700; line-height: 1.25; writing-mode: vertical-rl; overflow: hidden; box-shadow: inset -3px 0 0 #0003; }
+.ch-end .rd-shelf { justify-content: center; }
+.rd-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 8px; }
+.rd-book { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--paper-2); text-align: left; box-shadow: inset 0 0 0 2px color-mix(in srgb, #24705f 35%, transparent); }
+.rd-book:not(:disabled):hover { background: var(--paper-3); }
+.rd-book strong { font-family: var(--font-display); line-height: 1.35; }
+.rd-book span { font-size: var(--fs-xs); font-weight: 700; color: #1d5c4e; }
+.rd-book.done { background: #dcefe8; }
+.rd-book.wait { opacity: .6; }
+.rd-book:disabled { cursor: default; color: inherit; }
+.rd-more { margin-top: 10px; text-align: left; }
+.rd-more summary { cursor: pointer; font-weight: 700; color: #1d5c4e; text-align: center; }
+.rd-review { margin: 8px 0 0; padding-left: 1.4em; display: grid; gap: 8px; }
+.rd-review li span { display: block; color: #2e7d32; font-weight: 700; }
+.rd-review li small { display: block; color: var(--ink-3); }
 @media (max-width: 480px) {
   .handover, .stage3 { flex-direction: column; align-items: stretch; text-align: center; }
   .handover .cta, .stage3 .cta { justify-content: center; }

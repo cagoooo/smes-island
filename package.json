@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.27.0",
-  "releaseNotes": "前兩段改為紀念證書，只有尋河馬達人可以到校長室兌換小客人招待券",
+  "version": "1.28.0",
+  "releaseNotes": "新增第四段「圖書館共讀達人」：選一本讀完的書作答，全部答對才算讀懂，讀懂 3 本領紀念證書",
   "type": "module",
   "scripts": {
     "dev": "vite",

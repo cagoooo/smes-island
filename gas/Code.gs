@@ -1,16 +1,21 @@
 // 小河馬證書名單：網站送來班級姓名，寫進這份試算表；尋河馬達人進「發獎名單」，校長室在「已領獎」打勾
 // 「題庫」分頁是第三段島嶼閱讀挑戰的題目，老師直接在試算表新增、修改或停用，網站會自動讀取
 // 2026-11-05 起只有尋河馬達人到校長室領獎：發獎名單只放尋河馬達人，前兩段的紀念證書另外收在「前兩段紀錄」
+// 2026-11-06 起第四段「圖書館共讀達人」：題目在「共讀題庫」分頁（一本書一組題目），讀懂 3 本的孩子記在「共讀達人名單」，紀念證書不兌換
 const LIST = '發獎名單';
 const OLD_LIST = '領取名單';
 const TRAIL = '前兩段紀錄';
-const LISTS = [LIST, TRAIL];
-const listOf = (level) => (level === 'M' ? LIST : TRAIL);
+const READ_LIST = '共讀達人名單';
+const LISTS = [LIST, TRAIL, READ_LIST];
+const listOf = (level) => (level === 'M' ? LIST : level === 'R' ? READ_LIST : TRAIL);
 const STATS = '統計';
 const VIEW = '分類名單';
 const PRINT = '列印清單';
 const REDEEM = '11 月 11 日（三）起'; // 和網站 src/data/challenge.js 的 REDEEM 相同
 const BANK = '題庫';
+const READ = '共讀題庫';
+const BANK_BAK = '題庫搬家前備份';
+const LIB = '圖書館館藏'; // 靖權老師出的共讀書題目，「出題者」欄寫這個
 const GUIDE = '出題說明';
 const OVERVIEW = '題庫總覽';
 const CHECK = '檢查';
@@ -18,7 +23,9 @@ const DUP = '重複紀錄';
 const ROSTER = '全校名冊';
 const OK = '✔ 會出題';
 const HEAD = ['領取時間', '證書編號', '證書', '班級', '姓名', '已領獎', '領獎時間', '排序', '名冊比對'];
-const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人', M: '尋河馬達人' };
+const TITLES = { 6: '尋寶探險家', 12: '尋寶小達人', M: '尋河馬達人', R: '圖書館共讀達人' };
+const READ_HEAD = ['停用', '書名', '年段', '題目', '選項A', '選項B', '選項C', '選項D', '答案', '解說', '出題者', '檢查'];
+const READ_MIN = 3; // 一本書在某個年段至少要有幾題，才會出現在網站的書單
 const BANK_HEAD = ['停用', '年段', '島嶼', '情境（可空白）', '題目', '選項A', '選項B', '選項C', '選項D', '答案', '解說', '出題者'];
 const ANY = '不限';
 const BANK_TTL = 300;
@@ -42,6 +49,7 @@ const THEMES = {
   曙光未來島: '未來目標、科普與雙語、成語、時間與能源',
 };
 const LIST_TAB = '#c9a46a';
+const READ_TAB = '#2f8f7a';
 const BANK_TAB = '#9b6bb3';
 
 // 國字直接排序會變成一、三、二……，另外存數字排序碼：一年二班 → 102
@@ -88,6 +96,16 @@ function setupList(ss, name) {
       sh.hideColumns(6, 2);
       sh.getRange('A1').setNote('第一、二段（尋寶探險家、尋寶小達人）的紀念證書，不發獎；校長室發獎請看「發獎名單」');
     }
+    if (name === READ_LIST) {
+      sh.hideColumns(6, 2);
+      sh.getRange('A1').setNote('第四段：讀懂 3 本共讀書（每本全部答對）的孩子，紀念證書不兌換；「通過的書」欄是他讀懂的書');
+    }
+  }
+  if (name === READ_LIST && sh.getRange(1, 10).getValue() !== '通過的書') {
+    sh.getRange(1, 10).setValue('通過的書').setFontWeight('bold').setBackground('#f4e9d3');
+    sh.getRange('J:J').setNumberFormat('@').setWrap(true);
+    sh.setColumnWidth(10, 420);
+    sh.setTabColor(READ_TAB);
   }
   if (head[7] !== HEAD[7]) upgradeList(ss, sh);
   if (head[8] !== HEAD[8]) addCheckColumn(sh);
@@ -387,12 +405,19 @@ function setupGuide(ss) {
     ['③ 寫完看最右邊的「檢查」欄：出現「✔ 會出題」就完成了；「⚠」開頭的代表網站會略過這題，照提示補好就好。'],
     ['找題目：題庫第一列有篩選鈕，可以只看某座島、某個年段，或在「檢查」欄只看有「⚠」的題目。'],
     ['不想用的題目，在「停用」欄打勾就好，不要刪掉整列，之後取消勾選還能再用。'],
-    ['「發獎名單」「統計」兩個分頁是校長室發獎用的，只有資訊組能修改。'],
+    ['圖書館共讀挑戰（第四段）：出題說明'],
+    ['第四段「圖書館共讀達人」：成為尋河馬達人後，孩子選一本讀過的書，答完這本書自己年段的全部題目，要全部答對才算讀懂；作答時不公布對錯，沒過要隔天才能再挑戰同一本。讀懂 3 本領紀念證書（不兌換）。'],
+    ['① 共讀題目寫在「共讀題庫」分頁，一列一題，不用選島嶼；「書名」欄同一本書要寫得一模一樣，網站靠書名把題目分成一組。'],
+    ['② 每本書、每個年段至少要 3 題，網站的書單才會出現這本書；建議低、中年段各 6 題，高年段 8 題。「題庫總覽」右邊會列出每本書目前的題數。'],
+    ['③ 題目要考書裡才有的內容：人物做了什麼、事情的經過、書中的細節與道理。不讀書、只靠常識就猜得到的題目，請放到「題庫」分頁的島嶼挑戰。'],
+    ['④ 寫完一樣看最右邊「檢查」欄，出現「✔ 會出題」就完成了。'],
+    ['「發獎名單」「統計」「共讀達人名單」是校長室與資訊組用的名單，只有資訊組能修改。'],
   ];
   sh.clear();
   sh.getRange(1, 1, lines.length, 1).setValues(lines).setWrap(true).setVerticalAlignment('middle');
   sh.getRange('A1').setFontWeight('bold').setFontSize(14);
-  sh.getRangeList(['A3', 'A4', 'A9']).setFontWeight('bold');
+  sh.getRangeList(['A3', 'A4', 'A9', 'A15', 'A16', 'A17', 'A18']).setFontWeight('bold');
+  sh.getRange('A13').setFontWeight('bold').setFontSize(14);
   sh.setColumnWidth(1, 760);
   sh.setRowHeights(2, lines.length - 1, 30);
 }
@@ -400,7 +425,7 @@ function setupGuide(ss) {
 // 題庫總覽：每座島、每個年段目前會出的題目數，讓出題老師知道哪裡還缺題
 function setupOverview(ss) {
   const old = ss.getSheetByName(OVERVIEW);
-  if (old && old.getFrozenRows() === 4) return false; // 最後一步才凍結標題列，沒凍結代表上次沒做完，整頁重做
+  if (old && old.getFrozenRows() === 4 && old.getRange('H4').getValue() === '共讀書名') return false; // 最後一步才凍結標題列，沒凍結代表上次沒做完，整頁重做
   const sh = old ? old.clear() : ss.insertSheet(OVERVIEW);
   const q = `'${BANK}'`;
   const names = [...Object.keys(ISLAND_IDS), ANY];
@@ -433,15 +458,109 @@ function setupOverview(ss) {
     SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0).setBackground('#fbe0da').setBold(true).setRanges([sh.getRange(total + 3, 3)]).build(),
   ]);
   [120, 330, 110, 110, 110, 70].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  // 右邊：共讀題庫每本書、每個年段會出的題數；少於 READ_MIN 題的年段，網站書單不會出現這本書
+  const r = `'${READ}'`;
+  sh.getRange('H2').setValue(`共讀題庫：每本書、每個年段至少 ${READ_MIN} 題，網站書單才會出現這本書（紅色代表不夠）`).setFontWeight('bold');
+  sh.getRange('H4:L4').setValues([['共讀書名', '低', '中', '高', '合計']]).setFontWeight('bold').setBackground('#d9efe9');
+  sh.getRange('H5').setFormula(`=IFERROR(LET(k,SORT(UNIQUE(FILTER(${r}!B2:B,${r}!L2:L="${OK}"))),HSTACK(k,`
+    + ['低', '中', '高'].map((b) => `MAP(k,LAMBDA(x,COUNTIFS(${r}!B2:B,x,${r}!C2:C,"${b}",${r}!L2:L,"${OK}")))`).join(',')
+    + `,MAP(k,LAMBDA(x,COUNTIFS(${r}!B2:B,x,${r}!L2:L,"${OK}"))))),"還沒有共讀題目")`);
+  sh.getRange('I5:L200').setHorizontalAlignment('center');
+  sh.setColumnWidth(7, 30);
+  sh.setColumnWidth(8, 300);
+  [9, 10, 11].forEach((c) => sh.setColumnWidth(c, 56));
+  sh.setColumnWidth(12, 60);
+  const rules = sh.getConditionalFormatRules();
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(`=AND($H5<>"",I5<${READ_MIN})`).setBackground('#f6c9c0').setRanges([sh.getRange('I5:K200')]).build());
+  sh.setConditionalFormatRules(rules);
   sh.setFrozenRows(4);
   return true;
+}
+
+// 共讀題庫的檢查欄：和網站讀題規則相同
+function readCheckFormula() {
+  return `={"${CHECK}";MAP(A2:A,B2:B,C2:C,D2:D,E2:E,F2:F,G2:G,H2:H,I2:I,LAMBDA(off,book,band,ques,opa,opb,opc,opd,ans,`
+    + `LET(cnt,(TRIM(opa)<>"")+(TRIM(opb)<>"")+(TRIM(opc)<>"")+(TRIM(opd)<>""),pos,MATCH(UPPER(TRIM(ans)),{"A";"B";"C";"D"},0),`
+    + `IF(LEN(book&band&ques&opa&opb&ans)=0,"",IF(off=TRUE,"停用",`
+    + `IF(TRIM(book)="","⚠ 缺書名",`
+    + `IF(ISNA(MATCH(band,{"低";"中";"高"},0)),"⚠ 年段請選 低、中、高",`
+    + `IF(TRIM(ques)="","⚠ 缺題目",IF(cnt<2,"⚠ 選項至少要兩個",IF(ISNA(pos),"⚠ 答案請填 A～D",`
+    + `IF(TRIM(CHOOSE(pos,opa,opb,opc,opd))="","⚠ 答案指到空白選項","${OK}")))))))))))}`;
+}
+
+// 共讀題庫：第一次建立時，把「題庫」裡出題者是「圖書館館藏」的題目搬過來（搬之前整張題庫複製一份隱藏備份）
+function setupRead(ss) {
+  if (ss.getSheetByName(READ)) return false;
+  const bank = ss.getSheetByName(BANK);
+  if (bank && bank.getLastRow() > 1 && !ss.getSheetByName(BANK_BAK)) {
+    const bak = bank.copyTo(ss).setName(BANK_BAK);
+    const p = bak.protect().setDescription('題庫搬家前的備份，只有資訊組能修改');
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+    bak.hideSheet();
+  }
+  const sh = ss.insertSheet(READ);
+  sh.getRange(1, 1, 1, READ_HEAD.length - 1).setValues([READ_HEAD.slice(0, -1)]);
+  sh.setFrozenRows(1);
+  if (bank && bank.getLastRow() > 1) {
+    const n = bank.getLastRow() - 1;
+    const rows = bank.getRange(2, 1, n, BANK_HEAD.length).getValues();
+    const lib = rows.filter((x) => String(x[11]).trim() === LIB);
+    if (lib.length) {
+      const keep = rows.filter((x) => String(x[11]).trim() !== LIB);
+      // 題庫：停用 年段 島嶼 情境 題目 A B C D 答案 解說 出題者 → 共讀：停用 書名 年段 題目 A B C D 答案 解說 出題者
+      sh.getRange(2, 1, lib.length, READ_HEAD.length - 1).setValues(lib.map((x) => [x[0] === true, x[3], x[1], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11]]));
+      bank.getRange(2, 1, n, BANK_HEAD.length).clearContent();
+      if (keep.length) bank.getRange(2, 1, keep.length, BANK_HEAD.length).setValues(keep);
+    }
+  }
+  upgradeRead(sh);
+  setupGuide(ss);
+  CacheService.getScriptCache().removeAll(['bank', 'read']);
+  return true;
+}
+
+function upgradeRead(sh) {
+  const max = sh.getMaxRows() - 1;
+  const col = (c) => sh.getRange(2, c, max, 1);
+  const pick = (c, rule) => col(c).setDataValidation(rule.setAllowInvalid(false).build());
+  pick(1, SpreadsheetApp.newDataValidation().requireCheckbox());
+  pick(3, SpreadsheetApp.newDataValidation().requireValueInList(['低', '中', '高'], true));
+  pick(9, SpreadsheetApp.newDataValidation().requireValueInList(['A', 'B', 'C', 'D'], true));
+  sh.getRange(2, 2, max, 10).setNumberFormat('@').setWrap(true);
+  sh.getRange(2, 1, max, 12).setVerticalAlignment('top');
+  sh.getRange(2, 3, max, 1).setHorizontalAlignment('center');
+  sh.getRange(2, 9, max, 1).setHorizontalAlignment('center');
+  sh.getRange(1, 12).setFormula(readCheckFormula());
+  sh.getRange('A1').setNote('打勾就停用這一題，網站不會再出這題；取消勾選就恢復使用');
+  sh.getRange('B1').setNote('同一本書的書名要寫得一模一樣，網站靠書名把題目分成一組');
+  sh.getRange('C1').setNote('低：一二年級　中：三四年級　高：五六年級。孩子只會答到自己年段的題目');
+  sh.getRange('I1').setNote('填正確答案是哪一個選項（A、B、C 或 D）。網站會自動打亂選項順序');
+  sh.getRange('L1').setNote('自動檢查，不用填。「⚠」開頭的題目網站會略過，照提示補好就會出題');
+  sh.getRange(1, 1, 1, 12).setFontWeight('bold').setBackground('#d9efe9').setVerticalAlignment('middle');
+  [48, 220, 48, 300, 120, 120, 120, 120, 48, 260, 90, 150].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setFrozenColumns(2);
+  if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), 12).createFilter();
+  const all = sh.getRange(2, 1, max, 12);
+  const band = sh.getRange(2, 3, max, 1);
+  const when = (f, range) => SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setRanges([range]);
+  sh.setConditionalFormatRules([
+    when('=$A2=TRUE', all).setFontColor('#9a9a9a').setStrikethrough(true).setBackground('#f1f1f1').build(),
+    when('=LEFT($L2,1)="⚠"', all).setBackground('#fbe0da').build(),
+    when('=$C2="低"', band).setBackground('#e2f1dc').build(),
+    when('=$C2="中"', band).setBackground('#dde9f7').build(),
+    when('=$C2="高"', band).setBackground('#fbe5cf').build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextStartsWith('✔').setFontColor('#2e7d32').setRanges([sh.getRange(2, 12, max, 1)]).build(),
+  ]);
+  sh.setTabColor(READ_TAB);
+  sh.getRange(1, 1, 1, 12).protect().setDescription('共讀題庫標題列，改了網站會讀不到題目').setWarningOnly(true);
 }
 
 // 分頁照用途排好、上色：前三個是校長室發獎用，後三個是出題用
 // 平常只露出發獎名單、統計和出題三頁；其他分頁收起來（隱藏，不刪除），選單「收起來的分頁」打得開
 const TUCKED = [VIEW, TRAIL, DUP, ROSTER];
 function arrangeTabs(ss) {
-  [[LIST, LIST_TAB], [PRINT, '#d9432f'], [STATS, LIST_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB]].forEach(([name, color], i) => {
+  [[LIST, LIST_TAB], [PRINT, '#d9432f'], [STATS, LIST_TAB], [READ_LIST, READ_TAB], [GUIDE, BANK_TAB], [OVERVIEW, BANK_TAB], [BANK, BANK_TAB], [READ, READ_TAB]].forEach(([name, color], i) => {
     const sh = ss.getSheetByName(name);
     if (!sh) return;
     sh.setTabColor(color);
@@ -461,7 +580,7 @@ function tuck(ss) {
 // 名單和統計是發獎資料，只有試算表擁有者（資訊組）能改；已領獎、領獎時間兩欄留著，之後校長室加入編輯也能打勾
 // 題庫標題列改到時跳出提醒，避免欄位被打亂
 function guard(ss) {
-  [[LIST, ['F2:G']], [TRAIL, []], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []], [PRINT, []]].forEach(([name, open]) => {
+  [[LIST, ['F2:G']], [TRAIL, []], [READ_LIST, []], [VIEW, ['B2', 'D2', 'F2', 'H2']], [STATS, []], [PRINT, []]].forEach(([name, open]) => {
     const sh = ss.getSheetByName(name);
     if (!sh || sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) return;
     const p = sh.protect().setDescription('發獎資料，只有資訊組能修改');
@@ -498,6 +617,31 @@ function bankItems() {
   return items;
 }
 
+// 網站讀取共讀題目：一本書一組，只送出啟用、格式完整的題目；某個年段題數太少的書不送出
+function readItems() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('read');
+  if (hit) return JSON.parse(hit);
+  const sh = SpreadsheetApp.getActive().getSheetByName(READ);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const items = [];
+  sh.getRange(2, 1, sh.getLastRow() - 1, READ_HEAD.length - 1).getDisplayValues().forEach((r) => {
+    const [off, k, b, q, ...rest] = r;
+    const letters = rest.slice(0, 4);
+    const ans = 'ABCD'.indexOf(String(rest[4]).trim().toUpperCase());
+    if (off === 'TRUE' || !k.trim() || !b || !'低中高'.includes(b) || !q.trim() || ans < 0 || !String(letters[ans]).trim()) return;
+    const kept = letters.map((t, n) => [String(t).trim(), n]).filter(([t]) => t);
+    if (kept.length < 2) return;
+    items.push({ k: k.trim(), b, q: q.trim(), o: kept.map(([t]) => t), a: kept.findIndex(([, n]) => n === ans), x: String(rest[5]).trim() });
+  });
+  const count = {};
+  items.forEach((it) => { count[`${it.k}|${it.b}`] = (count[`${it.k}|${it.b}`] || 0) + 1; });
+  const out = items.filter((it) => count[`${it.k}|${it.b}`] >= READ_MIN);
+  const text = JSON.stringify(out);
+  if (text.length < 90000) cache.put('read', text, BANK_TTL);
+  return out;
+}
+
 function setup() {
   const ss = SpreadsheetApp.getActive();
   if (ss.getSpreadsheetTimeZone() !== 'Asia/Taipei') ss.setSpreadsheetTimeZone('Asia/Taipei'); // 新試算表預設美國時區，領取時間會差十幾小時
@@ -507,9 +651,10 @@ function setup() {
   const printed = setupPrint(ss);
   setupView(ss);
   setupBank(ss);
+  const read = setupRead(ss);
   // 總覽、分頁排序與保護只是方便使用，出錯也不能擋住網站寫入名單
   try {
-    if (setupOverview(ss) || moved || printed || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
+    if (setupOverview(ss) || moved || printed || read || !ss.getSheetByName(OVERVIEW).getTabColor()) arrangeTabs(ss);
     guard(ss);
   } catch (err) {
     console.error(err);
@@ -517,7 +662,7 @@ function setup() {
 }
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter.bank) return json({ ok: true, items: bankItems() });
+  if (e && e.parameter && e.parameter.bank) return json({ ok: true, items: bankItems(), books: readItems() });
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return json({ ok: false, error: 'busy' });
   try {
@@ -564,8 +709,13 @@ function doPost(e) {
     const row = last + 1;
     sh.getRange(row, 1, 1, 5).setValues([[new Date(), d.code, TITLES[level], fix.cls, fix.name]]);
     sh.getRange(row, 8, 1, 2).setValues([[clsKey(fix.cls), fix.note]]);
+    if (level === 'R') {
+      // 通過的書：只收文字，開頭的 = + - @ 拿掉，避免被當成公式
+      const books = (Array.isArray(d.books) ? d.books : []).slice(0, 30).map((b) => String(b).replace(/^[=+\-@\s]+/, '').slice(0, 60)).filter(Boolean);
+      sh.getRange(row, 10).setNumberFormat('@').setValue(books.join('、'));
+    }
     sh.getRange(row, 1).setNumberFormat(STAMP);
-    sh.getRange(row, 6).insertCheckboxes();
+    if (level !== 'R') sh.getRange(row, 6).insertCheckboxes();
     return json({ ok: true });
   } finally {
     lock.releaseLock();
@@ -576,6 +726,7 @@ function doPost(e) {
 function onEdit(e) {
   const r = e.range;
   if (r.getSheet().getName() === BANK) { CacheService.getScriptCache().remove('bank'); return; }
+  if (r.getSheet().getName() === READ) { CacheService.getScriptCache().remove('read'); return; }
   if (r.getSheet().getName() === ROSTER) { CacheService.getScriptCache().remove('roster'); return; }
   if (r.getSheet().getName() !== LIST || r.getColumn() !== 6 || r.getRow() < 2 || r.getNumRows() > 1) return;
   const cell = r.getSheet().getRange(r.getRow(), 7);
