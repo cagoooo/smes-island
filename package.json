@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.28.0",
-  "releaseNotes": "新增第四段「圖書館共讀達人」：選一本讀完的書作答，全部答對才算讀懂，讀懂 3 本領紀念證書",
+  "version": "1.29.0",
+  "releaseNotes": "小河馬變圓圓的、更可愛了！牠們也換了新的藏身處，轉一轉畫面，看看建築後面和高高的地方",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -667,7 +667,7 @@ function showTourStop() {
   }
   $('#tTitle').textContent = d.name;
   $('#tText').textContent = d.tour;
-  $('#tHippo').textContent = S.hippos.has(d.id) ? `這座島的${HIPPOS[d.id].name}，你已經找到了！` : '這座島也躲著一隻小河馬，找找看閃閃發光的地方！';
+  $('#tHippo').textContent = S.hippos.has(d.id) ? `這座島的${HIPPOS[d.id].name}，你已經找到了！` : '這座島也躲著一隻小河馬！牠很會躲：轉一轉畫面，看看建築後面、高高的地方，找找閃閃發光的地方！';
   world.focusIsland(d.id);
 }
 
@@ -792,7 +792,7 @@ function showMission() {
 
 function showPassport() {
   openModal(`${dialogHead('大河馬閱讀護照')}<div class="dialog-body">
-    <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬躲在各島的角落，放大畫面找找看閃閃發光的地方。</p>
+    <p>走訪一座島就蓋一枚章。目前集到 <b>${S.stamps.size}</b> / 12 枚，找到 <b>${S.hippos.size}</b> / 12 隻小河馬。小河馬很會躲，常常藏在建築後面、水裡或高高的地方：轉一轉、放大畫面，找找看閃閃發光的地方。</p>
     <div class="stamps">${ISLANDS.map((d) => `<button class="stamp ${S.stamps.has(d.id) ? 'on' : ''}" style="--c:${d.color}" data-goto="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <h3 class="hippo-title">小河馬證書</h3>
     <p>找到 6 隻、12 隻各可領一張紀念證書；集滿 12 枚章再通過閱讀挑戰，就能領「尋河馬達人」，${REDEEM}到校長室兌換小客人招待券！</p>

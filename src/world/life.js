@@ -1,7 +1,7 @@
 // 天空中的生命：鱻鯉雲魚、飛艇、紙飛機、鳥群與小河馬
 import * as THREE from 'three';
 import { Kit, G, makeRng } from './kit.js';
-import { C } from './props.js';
+import { C, hippoFigure, HIPPO_PINK, HIPPO_LILAC } from './props.js';
 import { shared } from './materials.js';
 
 const LEAP_HEIGHT = 15;
@@ -155,26 +155,30 @@ export class Life {
   buildHippos(scene, islands) {
     this.hippos = [];
     const r = makeRng(33);
+    // 藏在看島鏡頭的背面、水裡或高處：要轉動畫面、放大找才看得到，像找彩蛋
+    // [x, y, z, 面向]；面向留空就隨機。看島時鏡頭從 +z 那一側斜看過來
     const spots = {
-      core: [-15, 0.05, 2.6], course: [-11.2, 0.05, -3], inquiry: [2.4, 0.05, 11.4], walk: [-1, 3.28, -9.3], digital: [10.8, 0.05, 2.2], library: [-9.6, 0.05, -3.6],
-      admin: [8.6, 0.05, -1.4], teacher: [-9, 0.05, -2.2], results: [-2.4, 1.33, -0.4], forest: [-5.4, 0.05, 6.4], brand: [8.6, 0.05, 3.4], future: [6.6, 0.05, -3.4],
+      core: [2, 2.76, -10.9], // 世界樹背後，樹根伸到底的台地上
+      course: [2.6, -0.14, -3.1, 0], // 攤開大書後面的書海裡，只露出頭
+      inquiry: [0.8, 0.05, -8.3], // 天文台背後
+      walk: [-3.8, 0.05, 1.2, Math.PI], // 客家文化館後面，探頭看大壩的水位
+      digital: [3.4, 0.05, -9], // 伺服器機櫃背後
+      library: [3, 0.05, -6.2], // 書房建築背後
+      admin: [1.4, 8.89, -3.55, Math.PI / 2], // 燈塔頂端的燈室外圍
+      teacher: [-2.2, 0.05, -5.8], // 共備工坊背後
+      results: [7.85, 0.05, -4.14], // 大展示板背後
+      forest: [-1.04, 0.05, -4.1], // 書屋後面
+      brand: [-0.5, 6.07, -2.5], // 飛艇繫泊塔頂的平台
+      future: [2, 0.55, -4.3], // 右邊那道石門背後
     };
-    for (const [id, [x, y, z]] of Object.entries(spots)) {
+    for (const [id, [x, y, z, face]] of Object.entries(spots)) {
       const is = islands[id];
       const k = new Kit(60 + this.hippos.length);
-      const col = r() > 0.5 ? '#f09ab0' : '#9aa8a0';
-      k.ball(0.28, col, 0, 0.26, -0.04, { detail: 1, sz: 1.2, sy: 0.84 });
-      k.ball(0.2, col, 0, 0.3, 0.3, { detail: 1 });
-      k.ball(0.14, col, 0, 0.24, 0.46, { detail: 1, sx: 1.1, sy: 0.74 });
-      for (const s of [-1, 1]) {
-        k.ball(0.045, C.ink, s * 0.09, 0.38, 0.44, {});
-        k.ball(0.06, col, s * 0.13, 0.5, 0.2, {});
-        k.cyl(0.07, 0.14, col, s * 0.15, 0, 0.14, { seg: 5 });
-        k.cyl(0.07, 0.14, col, s * 0.15, 0, -0.2, { seg: 5 });
-      }
+      hippoFigure(k, r() > 0.5 ? HIPPO_PINK : HIPPO_LILAC);
       const m = k.build();
       m.position.set(x, y, z);
-      m.rotation.y = r() * 6.28;
+      const spin = r() * 6.28;
+      m.rotation.y = face ?? spin;
       m.scale.setScalar(1.15);
       m.userData.hippo = id;
       is.group.add(m);

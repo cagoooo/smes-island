@@ -257,21 +257,38 @@ export function brokenColumn(k, x, z, h = 1.4, col = C.stone) {
   k.cyl(0.42, 0.14, C.stone2, x, 0, z, { seg: 8 });
 }
 
+// 河馬造型（大小河馬共用，以小河馬尺寸畫在原點，面向 +z）
+// 河馬零件很小，不套「手工歪斜」：歪斜是固定大小，套在小零件上會變成刺刺的碎片
+export const HIPPO_PINK = '#f09ab0';
+export const HIPPO_LILAC = '#b8a6d2';
+export function hippoFigure(k, col = HIPPO_PINK) {
+  const soft = { detail: 2, wonk: 0, jitter: 0.012 };
+  const tiny = { detail: 1, wonk: 0, jitter: 0, ao: 1 };
+  const blush = col === HIPPO_PINK ? '#ff7c98' : '#f39ab2';
+  const inner = col === HIPPO_PINK ? '#d9788f' : '#9a86b8';
+  k.ball(0.27, col, 0, 0.27, -0.06, { ...soft, sx: 1.05, sy: 0.88, sz: 1.18 });
+  k.ball(0.21, col, 0, 0.36, 0.24, soft);
+  k.ball(0.16, col, 0, 0.28, 0.42, { ...soft, sx: 1.15, sy: 0.8, sz: 0.9 });
+  k.ball(0.035, col, 0, 0.3, -0.37, { ...tiny, ao: 0.9 });
+  for (const sx of [-1, 1]) {
+    // 眼睛：白眼球、黑眼珠、一點反光
+    k.ball(0.065, '#ffffff', sx * 0.085, 0.5, 0.34, tiny);
+    k.ball(0.038, C.ink, sx * 0.09, 0.515, 0.385, tiny);
+    k.ball(0.013, '#ffffff', sx * 0.09 - 0.012, 0.535, 0.418, tiny);
+    // 鼻孔、腮紅、耳朵
+    k.ball(0.022, '#6b3a48', sx * 0.05, 0.36, 0.525, tiny);
+    k.ball(0.042, blush, sx * 0.15, 0.32, 0.37, { ...tiny, sy: 0.7 });
+    k.ball(0.055, col, sx * 0.13, 0.56, 0.18, { ...tiny, sy: 1.1, sz: 0.6 });
+    k.ball(0.03, inner, sx * 0.13, 0.565, 0.205, { ...tiny, sy: 1.05, sz: 0.4 });
+    // 短短的腳
+    k.cyl(0.075, 0.16, col, sx * 0.15, 0, 0.12, { seg: 10, wonk: 0, jitter: 0 });
+    k.cyl(0.075, 0.16, col, sx * 0.15, 0, -0.22, { seg: 10, wonk: 0, jitter: 0 });
+  }
+}
+
 // 大河馬：石門的吉祥物
-export function hippo(k, x, y, z, ry = 0, s = 1, col = '#f09ab0') {
-  k.at(x, y, z, ry, s, () => {
-    k.ball(0.62, col, 0, 0.52, -0.1, { detail: 1, sx: 1, sy: 0.82, sz: 1.2 });
-    k.ball(0.42, col, 0, 0.62, 0.72, { detail: 1, sy: 0.82 });
-    k.ball(0.33, col, 0, 0.5, 1.02, { detail: 1, sx: 1.12, sy: 0.72 });
-    for (const sx of [-1, 1]) {
-      k.ball(0.09, '#ffffff', sx * 0.18, 0.86, 0.94, {});
-      k.ball(0.05, C.ink, sx * 0.18, 0.87, 1.02, {});
-      k.ball(0.1, col, sx * 0.28, 1, 0.56, {});
-      k.ball(0.035, C.ink, sx * 0.11, 0.56, 1.3, {});
-      k.cyl(0.16, 0.36, col, sx * 0.34, 0, 0.4, { seg: 6 });
-      k.cyl(0.16, 0.36, col, sx * 0.34, 0, -0.56, { seg: 6 });
-    }
-  });
+export function hippo(k, x, y, z, ry = 0, s = 1, col = HIPPO_PINK) {
+  k.at(x, y, z, ry, s * 2.25, () => hippoFigure(k, col));
 }
 
 // 鯉魚雕像
