@@ -757,6 +757,7 @@ function onOpen() {
       .addSeparator()
       .addItem('再收起來', 'tuckAll'))
     .addItem('把重複的紀錄移到「重複紀錄」', 'moveDuplicates')
+    .addItem('把選取的列移出名單（測試或校外，不發獎）', 'moveSelected')
     .addItem('拿全校名冊檢查全部姓名', 'checkAllNames')
     .addToUi();
 }
@@ -872,6 +873,11 @@ function archiveIn(ss, sh) {
     g.forEach((i) => i !== keep && moved.push({ row: i + 2, v: values[i], d: shown[i], keep: shown[keep][1] }));
   });
   moved.sort((a, b) => a.row - b.row);
+  return stashRows(ss, sh, moved);
+}
+
+// 把 moved（{row, v, d, keep}）寫進「重複紀錄」再從原分頁刪掉；keep 會寫在 H 欄
+function stashRows(ss, sh, moved) {
   if (!moved.length) return 0;
   let dup = ss.getSheetByName(DUP);
   if (!dup) {
@@ -897,6 +903,32 @@ function archiveIn(ss, sh) {
   dup.getRange(start, 9, moved.length, 1).setNumberFormat(STAMP);
   moved.slice().reverse().forEach((m) => sh.deleteRow(m.row));
   return moved.length;
+}
+
+// 測試帳號、校外孩子這類不發獎的紀錄：在名單選好那幾列，再從選單移到「重複紀錄」，H 欄註明不發獎
+const NOT_AWARD = '測試或校外資料（不發獎）';
+function moveSelected() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getActiveSheet();
+  if (LISTS.indexOf(sh.getName()) < 0) return ss.toast(`請先到「${LIST}」選好要移出的列`, '小河馬名單', 6);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return ss.toast('網站正在寫入，請稍後再試', '小河馬名單');
+  try {
+    const rows = {};
+    ss.getActiveRangeList().getRanges().forEach((rg) => {
+      for (let r = rg.getRow(); r < rg.getRow() + rg.getNumRows(); r++) if (r > 1 && r <= sh.getLastRow()) rows[r] = true;
+    });
+    const moved = Object.keys(rows).map(Number).sort((a, b) => a - b).map((row) => ({
+      row,
+      v: sh.getRange(row, 1, 1, 7).getValues()[0],
+      d: sh.getRange(row, 1, 1, 7).getDisplayValues()[0],
+      keep: NOT_AWARD,
+    })).filter((m) => m.d[4]);
+    const n = stashRows(ss, sh, moved);
+    ss.toast(n ? `移出 ${n} 筆，存在「${DUP}」分頁（H 欄寫著不發獎）` : '沒有選到有姓名的列', '小河馬名單', 6);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function moveDuplicates() {
