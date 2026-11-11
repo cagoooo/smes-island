@@ -780,7 +780,7 @@ function showMission() {
       <li><strong>逛島</strong><span>點一座島，或用「島嶼導覽」「跟著逛島」到處走走。</span></li>
       <li><strong>找小河馬</strong><span>放大畫面，找閃閃發光的地方，點一下小河馬就收集到了。</span></li>
       <li><strong>領紀念證書</strong><span>找到 6 隻領「尋寶探險家」，12 隻領「尋寶小達人」。到「閱讀護照」選班級、填姓名就能領，存起來留念。</span></li>
-      <li><strong>闖到尋河馬達人</strong><span>只有第三段「尋河馬達人」的證書可以到校長室兌換獎勵，石門國小的同學加油！</span></li>
+      <li><strong>闖到尋河馬達人</strong><span>只有第三段「尋河馬達人」可以到校長室兌換獎勵，不用帶證書，說出班級姓名就好，石門國小的同學加油！</span></li>
     </ol>
     <div class="stage3"><div><strong>第三段・尋河馬達人</strong><span>找齊 12 隻、集滿 12 枚閱讀護照章，再通過十二座島的閱讀挑戰（12 題答對 ${PASS} 題），就能領紫色證書，${REDEEM}到校長室兌換<b>小客人招待券</b>！</span></div><button class="cta koi" data-act="challenge">看挑戰</button></div>
     <div class="stage3 stage-read"><div><strong>第四段・圖書館共讀達人</strong><span>成為尋河馬達人後，選一本在圖書館讀完的書來答題，要全部答對才算讀懂。讀懂 ${READ_NEED} 本，領「圖書館共讀達人」紀念證書！</span></div><button class="cta moss" data-act="read">看共讀挑戰</button></div>
@@ -849,7 +849,7 @@ async function showCert(level) {
   const moved = sendCerts();
   openModal(`${dialogHead(`「${TIERS[level].title}」證書`)}<div class="dialog-body">
     <div class="cert-view" id="certView"><p>證書製作中…</p></div>
-    <p class="cert-tip">${level === 'M' ? `把證書存起來或印出來，<b>${REDEEM}</b>帶到校長室兌換小客人招待券！` : level === 'R' ? '這是紀念證書，存起來或印出來留念，謝謝你認真讀完這些書！' : '這是紀念證書，存起來或印出來留念；成為「尋河馬達人」就能到校長室兌換小客人招待券！'}手機也可以長按圖片儲存</p>
+    <p class="cert-tip">${level === 'M' ? `證書存起來留念就好，不用印出來；<b>${REDEEM}</b>到校長室說出班級姓名，就能兌換小客人招待券！` : level === 'R' ? '這是紀念證書，存起來或印出來留念，謝謝你認真讀完這些書！' : '這是紀念證書，存起來或印出來留念；成為「尋河馬達人」就能到校長室兌換小客人招待券！'}手機也可以長按圖片儲存</p>
     <div class="btn-row"><a class="cta koi" id="certSave" download="小河馬證書-${TIERS[level].title}.jpg" hidden>下載證書</a><button class="cta lake" data-act="certPrint">列印證書</button>
     <button class="cta moss go-on" data-act="certClose" data-level="${level}">${level === 'M' ? '前往第四段：圖書館共讀達人' : level === 'R' || (level === 12 && passed()) ? '關閉證書，繼續逛島' : level === 12 ? '前往第三段：尋河馬達人' : '關閉證書，繼續闖關'} ›</button></div>
     ${handover('平板要交給下一位同學時才按這裡，記得先把證書存好或印好。', true)}</div>`, true);
@@ -875,7 +875,7 @@ async function showCert(level) {
     $('#certSave').href = certUrl;
     $('#certSave').hidden = false;
   } catch { /* 留著剛才那張 */ }
-  $('.cert-tip').innerHTML = `你在 <b>${+m} 月 ${+d} 日</b>就領過這張證書了，證書改用第一次領取的日期和編號，${level === 'M' ? '帶哪一張到校長室都一樣哦！' : '存哪一張留念都一樣哦！'}`;
+  $('.cert-tip').innerHTML = `你在 <b>${+m} 月 ${+d} 日</b>就領過這張證書了，證書改用第一次領取的日期和編號，${level === 'M' ? '校長室用班級姓名對照，不用帶證書哦！' : '存哪一張留念都一樣哦！'}`;
 }
 
 // ───────── 第三段：島嶼閱讀挑戰 ─────────
@@ -1041,7 +1041,7 @@ function chPassed(st) {
   clearQuest();
   openModal(`${dialogHead('尋河馬達人')}<div class="dialog-body ch-end">
     <p>你已經通過十二座島的閱讀挑戰，12 題答對 <b>${st.score}</b> 題！</p>
-    <p>領取證書後，<b>${REDEEM}</b>帶到校長室兌換小客人招待券。</p>
+    <p>領取證書後，<b>${REDEEM}</b>到校長室說出班級姓名，就能兌換小客人招待券，不用帶證書。</p>
     <div class="btn-row"><button class="cta koi" data-act="certOpen" data-level="M">領取證書</button><button class="cta moss" data-act="read">第四段：圖書館共讀達人</button></div></div>`);
 }
 
@@ -1506,10 +1506,10 @@ const actions = {
     setHint();
     // 領完小達人證書，直接帶到第三段：章還沒集滿就看還差什麼，集滿了就能開始挑戰；領完達人證書就帶到第四段
     if (level === 12 && !passed()) { showChallenge(); return; }
-    if (level === 'M') { toast(`${REDEEM}，記得帶證書到校長室兌換小客人招待券！`); showRead(); return; }
+    if (level === 'M') { toast(`${REDEEM}到校長室說出班級姓名，就能兌換小客人招待券！`); showRead(); return; }
     if (level === 'R') { toast('你是圖書館共讀達人！繼續走進圖書館，讀更多好書吧'); return; }
     toast(level === 6 ? '繼續找小河馬，找齊 12 隻還有金色證書！'
-      : level === 'M' ? `${REDEEM}，記得帶證書到校長室兌換小客人招待券！`
+      : level === 'M' ? `${REDEEM}到校長室說出班級姓名，就能兌換小客人招待券！`
         : S.stamps.size < 12 ? `再集滿 12 枚章，就能挑戰尋河馬達人（${S.stamps.size} / 12）`
           : passed() ? '你已經是尋河馬達人了，繼續逛島吧！' : '12 枚章都集滿了，打開閱讀護照挑戰尋河馬達人！');
   },

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.29.0",
-  "releaseNotes": "小河馬變圓圓的、更可愛了！牠們也換了新的藏身處，轉一轉畫面，看看建築後面和高高的地方",
+  "version": "1.29.1",
+  "releaseNotes": "尋河馬達人到校長室兌換招待券，不用帶證書了！說出班級姓名，校長室會用名單對照",
   "type": "module",
   "scripts": {
     "dev": "vite",
