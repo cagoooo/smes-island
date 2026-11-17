@@ -8,7 +8,7 @@ export const SCHOOL = {
   phone: '03-4711752',
   lat: 24.8506,
   lon: 121.2245,
-  teacherUrl: 'https://www.smes.tyc.edu.tw/modules/school/index.php?department_id=2&zone_id=0&page_id=2&content_id=11&type=news&from_op=all_news#a5',
+  teacherUrl: 'https://cagoooo.github.io/Akai/',
 };
 
 const ring = (deg, rx, rz) => [Math.cos((deg * Math.PI) / 180) * rx, Math.sin((deg * Math.PI) / 180) * rz];
