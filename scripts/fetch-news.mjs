@@ -7,9 +7,25 @@ const out = process.argv[2] || 'public/data/news.json';
 
 const clean = (s) => s.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
-const res = await fetch(SITE, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; smes-island-news/1.0)' }, signal: AbortSignal.timeout(30000) });
-if (!res.ok) throw new Error(`官網回應 ${res.status}`);
-const html = await res.text();
+// 校網偶爾短暫連不上（2026-11-19 15:35 連線逾時），隔一下重試；三次都失敗就保留上一份公告，不讓排程變紅燈寄錯誤信
+const TRIES = 3;
+let html = '';
+for (let i = 1; i <= TRIES; i++) {
+  try {
+    const res = await fetch(SITE, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; smes-island-news/1.0)' }, signal: AbortSignal.timeout(30000) });
+    if (!res.ok) throw new Error(`官網回應 ${res.status}`);
+    html = await res.text();
+    break;
+  } catch (err) {
+    const why = err.cause?.code || err.message;
+    if (i === TRIES) {
+      console.log(`::warning::官網連續 ${TRIES} 次連不上（${why}），這次先保留上一份公告`);
+      process.exit(0);
+    }
+    console.log(`第 ${i} 次連不上官網（${why}），${i * 20} 秒後再試`);
+    await new Promise((ok) => setTimeout(ok, i * 20000));
+  }
+}
 
 const items = new Map();
 for (const [, row] of html.matchAll(/<tr aria-labelledby="header_date[^>]*>([\s\S]*?)<\/tr>/g)) {
