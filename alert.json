@@ -1,7 +1,10 @@
 {
- "updated": "2026-11-22T07:35:32.633Z",
+ "updated": "2026-11-22T08:05:31.077Z",
  "info": "",
  "closed": false,
  "tomorrow": false,
- "typhoon": false
+ "typhoon": false,
+ "warning": null,
+ "name": "",
+ "headline": ""
 }
