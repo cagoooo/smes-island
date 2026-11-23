@@ -1820,6 +1820,7 @@ async function boot() {
     world = new World($('#world'), {
       onPick: (id) => openIsland(id),
       onPerson: showSay,
+      canBuzz: () => music.sfxOn,
       onHover: (id) => Object.entries(plates).forEach(([k, p]) => p.classList.toggle('hot', k === id)),
       onFrame,
       onHippo: foundHippo,

@@ -1,8 +1,8 @@
 {
   "name": "smes-brand-island",
   "private": true,
-  "version": "1.29.1",
-  "releaseNotes": "尋河馬達人到校長室兌換招待券，不用帶證書了！說出班級姓名，校長室會用名單對照",
+  "version": "1.29.2",
+  "releaseNotes": "iPad 上的 3D 島嶼更順了！畫面不會再因為剛打開時的短暫卡頓就變模糊；Android 手機點到小河馬、人物和島嶼還會輕輕震一下",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -23,6 +23,9 @@ import { ISLANDS, BRIDGES, STEPS, LINKS, TALL } from '../data/site.js';
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const FALLS = { core: [[2.6, 6], [0.6, 4.6]], course: [[1.5, 3.2]], walk: [[1, 4]], inquiry: [[-0.5, 2.4]], forest: [[-2.2, 3]], future: [[0.9, 2.6]], library: [[2.2, 2.6]] };
 
+const _fwd = new THREE.Vector3();
+const _right = new THREE.Vector3();
+
 export class World {
   constructor(canvas, hooks = {}) {
     this.canvas = canvas;
@@ -65,6 +68,12 @@ export class World {
     this.target = new THREE.Vector3();
     this.hovered = null;
     this.frames = [];
+    this.warmUntil = performance.now() + 2500; // 暖機：前幾秒有著色器編譯的卡頓，不列入降畫質量測
+    this.slowRuns = 0;
+    document.addEventListener('visibilitychange', () => {
+      // 分頁剛切回來的第一個量測窗不算
+      this.frames.length = 0; this.slowRuns = 0; this.warmUntil = performance.now() + 500;
+    });
     this.lastT = performance.now();
     this.time = 0;
     this.reservoirLevel = 0.9;
@@ -73,7 +82,10 @@ export class World {
   }
 
   detectTier() {
-    const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && window.innerWidth < 1000);
+    const ua = navigator.userAgent;
+    // iPadOS 的 Safari 會偽裝成 Mac（UA 含 Macintosh），但真的 Mac 沒有多點觸控，靠這點認出 iPad；不看視窗寬度
+    const ipad = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+    const mobile = /Mobi|Android|iPhone|iPad/i.test(ua) || ipad;
     const mem = navigator.deviceMemory || 8;
     const core = navigator.hardwareConcurrency || 8;
     if (mem <= 3 || core <= 3) return 'low';
@@ -307,9 +319,9 @@ export class World {
       if (!step || this.flight) return;
       if (this.hooks.onArrow?.(e.key)) return;
       const k = 7;
-      const fwd = new THREE.Vector3();
+      const fwd = _fwd;
       this.camera.getWorldDirection(fwd).setY(0).normalize();
-      const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+      const right = _right.set(-fwd.z, 0, fwd.x);
       const move = right.multiplyScalar(step[0] * k).addScaledVector(fwd, -step[1] * k);
       this.camera.position.add(move); this.controls.target.add(move);
     });
@@ -333,17 +345,25 @@ export class World {
     this.hooks.onHover?.(id);
   }
 
+  // 點到東西時輕震一下（裝置支援才震；尊重「減少動態」與音效關閉）
+  buzz() {
+    if (typeof navigator.vibrate !== 'function') return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (this.hooks.canBuzz && !this.hooks.canBuzz()) return;
+    navigator.vibrate(15);
+  }
+
   pick() {
     const hip = this.rayHit(this.hippoMeshes);
     if (hip) {
       let o = hip.object;
       while (o && !o.userData.hippo) o = o.parent;
-      if (o) { this.hooks.onHippo?.(o.userData.hippo, o); return; }
+      if (o) { this.buzz(); this.hooks.onHippo?.(o.userData.hippo, o); return; }
     }
     const who = this.personAt();
-    if (who) { this.hooks.onPerson?.(who); return; }
+    if (who) { this.buzz(); this.hooks.onPerson?.(who); return; }
     const hit = this.rayHit(this.colliders);
-    if (hit) this.hooks.onPick?.(hit.object.userData.island);
+    if (hit) { this.buzz(); this.hooks.onPick?.(hit.object.userData.island); }
   }
 
   // 鏡頭跟著一支隊伍逛島
@@ -549,6 +569,7 @@ export class World {
 
   // 自動降畫質，確保互動流暢
   watchPerformance(dt) {
+    if (document.hidden || performance.now() < this.warmUntil) { this.frames.length = 0; return; }
     this.frames.push(dt);
     if (this.frames.length < 90) return;
     const avg = this.frames.reduce((a, b) => a + b, 0) / this.frames.length;
@@ -556,7 +577,10 @@ export class World {
     const fps = 1 / avg;
     this.fps = fps;
     if (document.hidden) return;
-    if (fps < 28) {
+    // 連續兩個量測窗都偏低才降一級，避免單次卡頓就永久降畫質
+    this.slowRuns = fps < 28 ? this.slowRuns + 1 : 0;
+    if (this.slowRuns >= 2) {
+      this.slowRuns = 0;
       if (this.tilt) { this.tilt = false; this.hooks.onQuality?.('tilt-off'); }
       else if (this.dpr > 1) { this.dpr = Math.max(1, this.dpr - 0.3); this.resize(); }
       else if (this.tier !== 'low') { this.tier = 'low'; this.sky.setShadowSize(1024); }
